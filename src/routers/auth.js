@@ -7,7 +7,7 @@ const uuid = require('uuid');
 // file image storage
 const fileStorage =  multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'img/avatar');
+        cb(null, 'public/img/avatar');
     },
     filename: (req, file, cb) => {
         const ext = file.mimetype.split("/")[1];

@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 
 const User = require('../models/users');
+const tokenExpired = '1d'
 
 // register
 exports.UserRegister = async (req, res) => {
@@ -51,21 +52,19 @@ exports.UserLogin = (req, res) => {
         (async () => {
             try {
                 if( await bcrypt.compare(password, result.password)) {
-                    const user = {email: result.email}
-                    const accessToken = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1d'})
+                    const user = {_id: result._id}
+                    const accessToken = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: tokenExpired})
                     const refreshToken = jwt.sign(user, process.env.REFRESH_TOKEN_SECRET)
                     const data = {
                         id: result._id,
                         name: result.name,
                         email: result.email,
                         avatar: result.avatar,
-                        accessToken: accessToken,
-                        refreshToken: refreshToken
                     }
                     result.refreshToken = refreshToken
                     result.save();
 
-                    res.status(200).json(data);
+                    res.status(200).json({accessToken: accessToken, refreshToken: refreshToken, user: data});
                 } else {
                     res.status(400).send('Wrong password');
                 }
@@ -120,13 +119,13 @@ exports.UserUpdate = (req, res) => {
 // refresh token
 exports.RefreshToken = (req, res) => {
     const refreshToken = req.body.token;
-    if(refreshToken == null ) return res.sendStatus(401);
+    if(refreshToken == null ) return res.status(401).send('token not found');
     User.findOne({refreshToken: refreshToken})
     .then(result => {
         if (!result) return res.sendStatus(403);
         jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, (err, user) => {
             if(err) return res.sendStatus(403);
-            const accessToken = jwt.sign({email: user.email}, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1d'});
+            const accessToken = jwt.sign({_id: user._id}, process.env.ACCESS_TOKEN_SECRET, {expiresIn: tokenExpired});
             res.json({accessToken: accessToken});
         })
     })
@@ -142,6 +141,9 @@ exports.UserLogout = (req, res) => {
         result.refreshToken = '';
         result.save()
         res.sendStatus(204);
+    })
+    .catch (err => {
+        res.status(400).send(err);
     })
 }
 
