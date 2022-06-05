@@ -6,6 +6,7 @@ const ActivitySchema = new Schema({
     action: {type: String},
     document: {type: String},
     documentId: {type: Schema.Types.ObjectId},
+    documentName: {type: String},
     original: {type: Object},
     updated: {type: Object},
     userId: {type: Schema.Types.ObjectId, ref: 'User'}

@@ -30,6 +30,8 @@ const indonesiaRouters = require('./src/routers/indonesia');
 const adjustmentRouters = require('./src/routers/adjustment');
 const transferRouters = require('./src/routers/transfer');
 const taskRoutes = require('./src/routers/tasks');
+const notificationRoutes = require('./src/routers/notifications');
+const activityRoutes = require('./src/routers/acitvities');
 
 
 app.use('/auth', userRoutes);
@@ -50,6 +52,8 @@ app.use('/adjustments', authenticateToken, adjustmentRouters);
 app.use('/transfers', authenticateToken, transferRouters);
 
 app.use('/tasks', authenticateToken, taskRoutes);
+app.use('/notifications', authenticateToken, notificationRoutes);
+app.use('/activities', authenticateToken, activityRoutes);
 
 const PORT = process.env.PORT || 3000;
 

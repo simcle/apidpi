@@ -16,6 +16,7 @@ exports.postTask = (req, res) => {
     const task = new Task({
         document: req.body.document,
         documentId: req.body.documentId,
+        documentName: req.body.documentName,
         type: req.body.type,
         title: req.body.title,
         details: req.body.details,

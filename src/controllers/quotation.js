@@ -255,6 +255,7 @@ exports.postQuotation = (req, res) => {
         return quotation.save()
     })
     .then(result => {
+        activity('insert','Quotation', result._id, result.no, req.user._id, result, result)
         res.status(200).json(result)
     })
     .catch(err => {
@@ -290,7 +291,7 @@ exports.putQuotation = async (req, res) => {
         return quotation.save()
     })
     .then(result => {
-        activity('update','Quotation', result._id, req.user._id, original, result)
+        activity('update','Quotation', result._id, result.no, req.user._id, original, result)
         res.status(200).json(result)
     })
     .catch(err => {
