@@ -284,6 +284,9 @@ exports.postProduct = (req, res) => {
                 })
                 res.status(200).json(result)
             })
+            .catch(err => {
+                res.status(400).send(err)
+            })
         } else {
             for(const image of images) {
                 fs.unlink(image.path, err => {
@@ -340,7 +343,7 @@ exports.putProduct = (req, res) => {
                 .then(result => {
                     result.isDefault = false
                     result.save();
-                });
+                })
                 const newInventory = new Inventory({
                     warehouseId: req.body.warehouseId,
                     sectionId: req.body.sectionId,
