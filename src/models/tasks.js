@@ -4,8 +4,8 @@ const Schema = mongoose.Schema;
 const TaskSchema = new Schema ({
     type: {type: String},
     documentId: {type: Schema.Types.ObjectId},
-    doucment: {type: String},
     documentName: {type: String},
+    route: {type: String},
     title: {type: String},
     details: {type: String},
     dueDate: {type: Date},

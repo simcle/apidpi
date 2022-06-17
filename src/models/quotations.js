@@ -49,7 +49,7 @@ const QuotationSchmea = new Schema({
     },
     grandTotal: {type: Number},
     status: {type: String},
-    offerConditions: {type: Object},
+    offerConditions: {type: Array},
     userId: {type: Schema.Types.ObjectId, ref: 'User'}
 }, {
     timestamps: true

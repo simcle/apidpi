@@ -14,6 +14,7 @@ app.use('/public/', express.static(dir));
 const authenticateToken = require('./authenticate');
 
 const userRoutes = require('./src/routers/auth');
+const dashboardRoutes = require('./src/routers/dashboard');
 const companyRouters = require('./src/routers/company');
 const shippingRoutes = require('./src/routers/shipping');
 const bankRoutes = require('./src/routers/banks');
@@ -35,6 +36,7 @@ const activityRoutes = require('./src/routers/acitvities');
 
 
 app.use('/auth', userRoutes);
+app.use('/dashboard', authenticateToken, dashboardRoutes);
 app.use('/setting', authenticateToken, companyRouters);
 app.use('/setting', authenticateToken, shippingRoutes);
 app.use('/setting', authenticateToken, bankRoutes);
