@@ -15,7 +15,7 @@ exports.getProducts = (req, res) => {
     const allProducts = Products.find().count();
     const activeProducts = Products.find({status: true}).count();
     const deactiveProducts = Products.find({status: false}).count();
-    const products = Products.find().limit(20).sort({createdAt: -1})
+    const products = Products.find().populate('brandId', 'name').limit(20).sort({createdAt: -1})
     Promise.all([
         brands,
         categories,
