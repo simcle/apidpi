@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const CustomerGroup = require('../models/customerGroups');
 const Provinces = require('../models/provinces');
 const Users = require('../models/users');
@@ -9,13 +10,16 @@ const Customer = require('../models/customers');
 
 exports.getCustomers = (req, res) => {
     const currentPage = req.query.page || 1
-    const perPage = req.query.perPage || 10
+    const perPage = req.query.perPage || 20
+    const search = req.query.search
     let totalItems;
-    Customer.find()
+    Customer.find({name: {$regex: '.*'+search+'.*', $options: 'i'}})
     .countDocuments()
     .then(count => {
         totalItems = count
-        return Customer.find()
+        return Customer.find({name: {$regex: '.*'+search+'.*', $options: 'i'}})
+        .populate('customerGroupId', 'name')
+        .populate('userId', 'name')
         .skip((currentPage -1) * perPage)
         .limit(perPage)
         .sort({createdAt: 'desc'})
@@ -37,10 +41,111 @@ exports.getCustomers = (req, res) => {
 }
 
 exports.deatailCustomer = (req, res) => {
-    Customer.findById(req.params.customerId)
+    const customerId = mongoose.Types.ObjectId(req.params.customerId);
+    Customer.aggregate([
+        {$match: {_id: customerId}},
+        {$lookup: {
+            from: 'activities',
+            localField: '_id',
+            foreignField: 'parentId',
+            pipeline: [
+                {$lookup: {
+                    from: 'users',
+                    localField: 'userId',
+                    foreignField: '_id',
+                    as: 'user',
+                }},
+                {$unwind: '$user'},
+                {$project: {
+                    document: 1,
+                    documentName: 1,
+                    documentId: 1,
+                    event: 1,
+                    createdAt: 1,
+                    user: '$user.name'
+                }}
+            ],
+            as: 'histories'
+        }},
+        {$lookup: {
+            from: 'customergroups',
+            localField: 'customerGroupId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    name: 1
+                }}
+            ],
+            as: 'customerGroup'
+        }},
+        {$unwind: {
+            path: '$customerGroup',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
+            from: 'creditterms',
+            localField: 'defaultCreditTermId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    code: 1
+                }}
+            ],
+            as: 'creditTerm'
+        }},
+        {$unwind: {
+            path: '$creditTerm',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
+            from: 'shipmentterms',
+            localField: 'defaultShipmentTermId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    code: 1
+                }}
+            ],
+            as: 'shipmentTerm'
+        }},
+        {$unwind: {
+            path: '$shipmentTerm',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
+            from: 'shippings',
+            localField: 'defaultShipmentMethodId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    name:1
+                }}
+            ],
+            as: 'shipmentMethod'
+        }},
+        {$unwind: {
+            path: '$shipmentMethod',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
+            from: 'taxcodes',
+            localField: 'defaultTaxId',
+            foreignField: '_id',
+            pipeline:[
+                {$project: {
+                    code: 1
+                }}
+            ],
+            as: 'tax'
+        }},
+        {$unwind: {
+            path: '$tax',
+            preserveNullAndEmptyArrays: true
+        }}
+    ])
     .then(result => {
         res.status(200).json({
-            customer: result
+            customer: result[0]
         })
     })
     .catch(err => {
@@ -145,7 +250,8 @@ exports.postCustomer = (req, res) => {
         defaultDiscountType: req.body.defaultDiscountType,
         defaultTaxId: req.body.defaultTaxId,
         addressLists: req.body.addressLists,
-        contactLists: req.body.contactLists
+        contactLists: req.body.contactLists,
+        userId: req.user._id
     });
     customer.save()
     .then(result => {

@@ -5,6 +5,7 @@ const ActivitySchema = new Schema({
     event: {type: String},
     action: {type: String},
     document: {type: String},
+    parentId: {type: Schema.Types.ObjectId},
     documentId: {type: Schema.Types.ObjectId},
     documentName: {type: String},
     original: {type: Object},

@@ -252,6 +252,8 @@ exports.putTransferInventory = async(req, res) => {
             await inventory.save()
             await update.save()
         } else {
+            const reduceQty = inventory.qty - item.qty;
+            inventory.qty = reduceQty;
             const newInventory = new Inventory({
                 warehouseId: toWarehouseId,
                 sectionId: item.toSectionId,
@@ -259,6 +261,7 @@ exports.putTransferInventory = async(req, res) => {
                 qty: item.qty,
                 isDefault: false
             })
+            await inventory.save()
             await newInventory.save()
         }
     }

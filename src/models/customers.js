@@ -20,7 +20,7 @@ const CustomerSchema = new Schema({
     defaultTaxId: {type: Schema.Types.ObjectId},
     addressLists: {type: Array},
     contactLists: {type: Array},
-    userId: {type: Schema.Types.ObjectId}
+    userId: {type: Schema.Types.ObjectId, ref: 'User'}
 },{
     timestamps: true
 });

@@ -3,13 +3,14 @@ const User = require('../models/users');
 const pusher = require('../modules/pusher');
 const notification = require('../modules/notification');
 
-module.exports = (event, document, documentId, documentName, userId, original, updated) => {
+module.exports = (event, document, parentId, documentId, documentName, userId, original, updated) => {
     switch (event) {
         case 'insert':
             const insert = new Activity({
                 event: event,
                 action: 'Create New',
                 document: document,
+                parentId: parentId,
                 documentId: documentId,
                 documentName: documentName,
                 original: original,
@@ -24,6 +25,7 @@ module.exports = (event, document, documentId, documentName, userId, original, u
                 action: 'Edit',
                 document: document,
                 documentId: documentId,
+                parentId: parentId,
                 documentName: documentName,
                 original: original,
                 updated: updated,
