@@ -4,7 +4,7 @@ const Schema = mongoose.Schema;
 const QuotationSchmea = new Schema({
     no: {type: String},
     salesOrderId: {type: Schema.Types.ObjectId, ref: 'Sale'},
-    customerId: {type: Schema.Types.ObjectId, ref: 'Customer', required: true},
+    customerId: {type: Schema.Types.ObjectId, ref: 'Customer'},
     address: {type: Object},
     customerPO: {type: String},
     remarks: {type: Object},

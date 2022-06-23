@@ -10,7 +10,6 @@ const Quotations = require('../models/quotations');
 const Activity = require('../models/activity');
 const Task = require('../models/tasks');
 const activity = require('../modules/activityHistory');
-const { reset } = require('nodemon');
 
 exports.getQuotations = (req, res) => {
     const currentPage = req.query.page || 1;
@@ -55,6 +54,7 @@ exports.getDetailQotation = (req, res) => {
     .populate('updated.items.productId','name')
     .sort({createdAt: '-1'});
     const task = Task.find({documentId: quotationId})
+    .populate('assignee', 'name')
     .populate('userId', 'name')
     .sort({createdAt: '-1'})
 
@@ -199,6 +199,7 @@ exports.getProduct = async (req, res) => {
     });
 };
 
+
 exports.postQuotation = (req, res) => {
     let newID;
     const date = new Date();
@@ -262,6 +263,70 @@ exports.postQuotation = (req, res) => {
         res.status(400).send(err)
     })
 };
+
+exports.duplicateQuotation = async (req, res) => {
+    const quotationId = req.params.quotationId;
+    const duplicate = await Quotations.findById(quotationId);
+    let newID;
+    const date = new Date();
+    let dd = date.getDate();
+    let mm = date.getMonth() +1;
+    let yy = date.getFullYear().toString().substring(2);
+    let YY = date.getFullYear()
+    dd = checkTime(dd);
+    mm = checkTime(mm)
+
+    function checkTime (i) {
+        if(i < 10) {
+            i = `0${i}`
+        }
+        return i
+    }
+
+    let today = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+    
+    Quotations.findOne({createdAt: {$gte: today}}).sort({createdAt: -1})
+    .then(result => {
+        if(result) {
+            const no = result.no.substring(16)
+            const newNo = parseInt(no) + 1
+            newID = `${dd}${mm}/DPI/QUO/${yy}/${newNo}`
+        } else {
+            newID = `${dd}${mm}/DPI/QUO/${yy}/1`
+        }
+        const quotation = new Quotations({
+            no: newID,
+            remarks: duplicate.remarks,
+            tags: duplicate.tags,
+            estimatedDeliveryDate: duplicate.estimatedDeliveryDate,
+            dateValidaty: duplicate.dateValidaty,
+            creditTermId: duplicate.creditTermId,
+            shipmentTermId: duplicate.shipmentTermId,
+            shipmentMethodId: duplicate.shipmentMethodId,
+            shipmentService: duplicate.shipmentService,
+            additionalCharges: duplicate.additionalCharges,
+            items: duplicate.items,
+            totalQty: duplicate.totalQty,
+            total: duplicate.total,
+            totalAdditionalCharges: duplicate.totalAdditionalCharges,
+            discount: duplicate.discount,
+            tax: duplicate.tax,
+            status: 'New',
+            grandTotal: duplicate.grandTotal,
+            offerConditions: duplicate.offerConditions,
+            userId: req.user._id
+        })
+        return quotation.save()
+    })
+    .then(result => {
+        activity('insert','Quotation', result.customerId, result._id, result.no, req.user._id, result, result)
+        res.status(200).json(result)
+    })
+    .catch(err => {
+        console.log(err);
+        res.status(400).send(err)
+    })
+}
 
 exports.putQuotation = async (req, res) => {
     const quotationId = req.params.quotationId;

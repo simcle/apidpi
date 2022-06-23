@@ -10,6 +10,7 @@ router.get('/edit/:quotationId', quotationController.editQuotation);
 router.get('/customer', quotationController.getCustomers);
 router.get('/product', quotationController.getProduct);
 router.post('/create', quotationController.postQuotation);
+router.post('/duplicate/:quotationId', quotationController.duplicateQuotation);
 router.put('/update/:quotationId', quotationController.putQuotation);
 
 module.exports = router;
