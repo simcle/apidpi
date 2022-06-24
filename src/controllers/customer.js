@@ -9,15 +9,45 @@ const Taxs = require('../models/taxCode');
 const Customer = require('../models/customers');
 
 exports.getCustomers = (req, res) => {
-    const currentPage = req.query.page || 1
-    const perPage = req.query.perPage || 20
-    const search = req.query.search
+    const currentPage = req.query.page || 1;
+    const perPage = req.query.perPage || 20;
+    const search = req.query.search;
+    const filter = req.query.filter;
+    let query = ''
+    if(filter == 'total customer') {
+        query= {$exists: true}
+    } else if(filter == null) {
+        query = {$in: null}
+    } else {
+        query = filter
+    }
     let totalItems;
-    Customer.find({name: {$regex: '.*'+search+'.*', $options: 'i'}})
+    const customerGroup = Customer.aggregate([
+        {$group: {
+            _id: '$customerGroupId', count: {$sum: 1},
+        }},
+        {$lookup: {
+            from: 'customergroups',
+            localField: '_id',
+            foreignField: '_id',
+            as: 'customerGroup'
+        }},
+        {$unwind: {
+            path: '$customerGroup',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$sort: {count: -1}},
+        {$project: {
+            _id: 1,
+            count: 1,
+            group: '$customerGroup.name'
+        }},
+    ]) 
+    const customer = Customer.find({name: {$regex: '.*'+search+'.*', $options: 'i'}, customerGroupId: query})
     .countDocuments()
     .then(count => {
         totalItems = count
-        return Customer.find({name: {$regex: '.*'+search+'.*', $options: 'i'}})
+        return Customer.find({name: {$regex: '.*'+search+'.*', $options: 'i'}, customerGroupId: query})
         .populate('customerGroupId', 'name')
         .populate('userId', 'name')
         .skip((currentPage -1) * perPage)
@@ -25,10 +55,16 @@ exports.getCustomers = (req, res) => {
         .sort({createdAt: 'desc'})
         
     })
+    
+    Promise.all([
+        customerGroup,
+        customer
+    ])
     .then(result => {
         const last_page = Math.ceil(totalItems / perPage)
         res.status(200).json({
-            data: result,
+            groups: result[0],
+            data: result[1],
             pages: {
                 current_page: currentPage,
                 last_page: last_page
@@ -36,6 +72,7 @@ exports.getCustomers = (req, res) => {
         })
     })
     .catch(err => {
+        console.log(err);
         res.status(400).send(err)
     })
 }
