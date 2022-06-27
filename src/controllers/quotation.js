@@ -11,16 +11,23 @@ const Activity = require('../models/activity');
 const Task = require('../models/tasks');
 const activity = require('../modules/activityHistory');
 
-exports.getQuotations = (req, res) => {
+exports.getQuotations = async (req, res) => {
     const currentPage = req.query.page || 1;
     const perPage = req.query.perPage || 20;
     const search = req.query.search
+    const filterStatus = req.query.filterStatus;
+    const customer = await Customers.find({name: {$regex: '.*'+search+'.*', $options: 'i'}}).select('_id')
+    const customerId = customer.map(obj => obj._id.toString())
+    let query = {}
+    if(filterStatus) {
+            query = {status: {$in: filterStatus}}
+    }
     let totalItems;
-    Quotations.find()
+    Quotations.find({$and: [{$or: [{no: {$regex: '.*'+search+'.*', $options: 'i'}}, {customerId: {$in: customerId}}]}, query]})
     .countDocuments()
     .then(count => {
         totalItems = count;
-        return Quotations.find()
+        return Quotations.find({$and: [{$or: [{no: {$regex: '.*'+search+'.*', $options: 'i'}}, {customerPO: {$regex: '.*'+search+'.*', $options: 'i'}}, {customerId: {$in: customerId}}]}, query]})
         .populate('customerId', 'name')
         .skip((currentPage -1) * perPage)
         .limit(perPage)

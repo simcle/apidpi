@@ -7,6 +7,7 @@ const ShipmentTerms = require('../models/shipmentTerm');
 const Shipings = require('../models/shipping');
 const Taxs = require('../models/taxCode');
 const Customer = require('../models/customers');
+const Tasks = require('../models/tasks');
 
 exports.getCustomers = (req, res) => {
     const currentPage = req.query.page || 1;
@@ -72,14 +73,18 @@ exports.getCustomers = (req, res) => {
         })
     })
     .catch(err => {
-        console.log(err);
         res.status(400).send(err)
     })
 }
 
 exports.deatailCustomer = (req, res) => {
     const customerId = mongoose.Types.ObjectId(req.params.customerId);
-    Customer.aggregate([
+    const tasks = Tasks.find({documentId: customerId})
+    .populate('assignee', 'name')
+    .populate('userId', 'name')
+    .sort({createdAt: '-1'});
+
+    const customer = Customer.aggregate([
         {$match: {_id: customerId}},
         {$lookup: {
             from: 'activities',
@@ -178,11 +183,31 @@ exports.deatailCustomer = (req, res) => {
         {$unwind: {
             path: '$tax',
             preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
+            from: 'quotations',
+            localField: '_id',
+            foreignField: 'customerId',
+            pipeline:[
+                {$group: {
+                    _id: '$customerId', count: {$sum: 1}, total: {$sum: '$grandTotal'}
+                }}
+            ],
+            as: 'quotation'
+        }},
+        {$unwind: {
+            path: '$quotation',
+            preserveNullAndEmptyArrays: true
         }}
+    ])
+    Promise.all([
+        tasks,
+        customer
     ])
     .then(result => {
         res.status(200).json({
-            customer: result[0]
+            tasks: result[0],
+            customer: result[1][0]
         })
     })
     .catch(err => {
