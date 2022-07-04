@@ -324,6 +324,17 @@ exports.deleteTaxCode = (req, res) => {
     });
 };
 
+exports.getCreditTerm = (req, res) => {
+    CreditTerm.find().sort({createdAt: -1})
+    .then(result => {
+        res.status(200).json(result)
+    })
+    .catch(err => {
+        res.status(400).send(err)
+    })
+    
+}
+
 exports.postCreditTerm = (req, res) => {
     const creditTerm = new CreditTerm({
         code: req.body.code,
@@ -341,6 +352,7 @@ exports.postCreditTerm = (req, res) => {
         res.status(400).send(err);
     });
 };
+
 
 exports.putCreditTerm = (req, res) => {
     CreditTerm.findById(req.params.creditTermId)
@@ -492,4 +504,5 @@ exports.deleteWarehouseSection = (req, res) => {
         }
     })
 }
+
 

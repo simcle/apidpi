@@ -10,6 +10,7 @@ const Quotations = require('../models/quotations');
 const Activity = require('../models/activity');
 const Task = require('../models/tasks');
 const activity = require('../modules/activityHistory');
+const Sales = require('../models/sales');
 
 exports.getQuotations = async (req, res) => {
     const currentPage = req.query.page || 1;
@@ -248,6 +249,7 @@ exports.postQuotation = (req, res) => {
             shipmentTermId: req.body.shipmentTermId,
             shipmentMethodId: req.body.shipmentMethodId,
             shipmentService: req.body.shipmentService,
+            shipmentCost: req.body.shipmentCost,
             additionalCharges: req.body.additionalCharges,
             items: req.body.items,
             totalQty: req.body.totalQty,
@@ -311,6 +313,7 @@ exports.duplicateQuotation = async (req, res) => {
             shipmentTermId: duplicate.shipmentTermId,
             shipmentMethodId: duplicate.shipmentMethodId,
             shipmentService: duplicate.shipmentService,
+            shipmentCost: duplicate.shipmentCost,
             additionalCharges: duplicate.additionalCharges,
             items: duplicate.items,
             totalQty: duplicate.totalQty,
@@ -350,6 +353,7 @@ exports.putQuotation = async (req, res) => {
         quotation.shipmentTermId = req.body.shipmentTermId;
         quotation.shipmentMethodId = req.body.shipmentMethodId;
         quotation.shipmentService = req.body.shipmentService;
+        quotation.shipmentCost = req.body.shipmentCost;
         quotation.additionalCharges = req.body.additionalCharges;
         quotation.items = req.body.items;
         quotation.totalQty = req.body.totalQty;
@@ -368,4 +372,102 @@ exports.putQuotation = async (req, res) => {
     .catch(err => {
         res.status(400).send(err)
     })
+};
+
+exports.closeQuotation = (req, res) => {
+    const quotationId = req.params.quotationId;
+    Quotations.findById(quotationId)
+    .then(quotation => {
+        quotation.status = 'Closed'
+        return quotation.save()
+    })
+    .then(result => {
+        res.status(200).json(result)
+    })
+    .catch(err => {
+        res.status(400).send(err)
+    })
 }
+
+exports.convertQuotations = (req, res) => {
+    let newID;
+    const date = new Date();
+    let dd = date.getDate();
+    let mm = date.getMonth() +1;
+    let yy = date.getFullYear().toString().substring(2);
+    let YY = date.getFullYear()
+    dd = checkTime(dd);
+    mm = checkTime(mm)
+
+    function checkTime (i) {
+        if(i < 10) {
+            i = `0${i}`
+        }
+        return i
+    }
+
+    let today = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+    const quotationId = req.params.quotationId;
+    const quotation = Quotations.findById(quotationId);
+    const sales = Sales.findOne({createdAt: {$gte: today}}).sort({createdAt: -1});
+    
+    Promise.all([
+        quotation,
+        sales
+    ])
+    .then(result => {
+        const qtn = result[0];
+        const sls = result[1];
+        if(sls) {
+            const no = sls.no.substring(15)
+            const newNo = parseInt(no) + 1
+            newID = `${dd}${mm}/DPI/SO/${yy}/${newNo}`
+        } else {
+            newID = `${dd}${mm}/DPI/SO/${yy}/1`
+        }
+
+        const sales = new Sales({
+            no: newID,
+            quotationId: qtn._id,
+            customerId: qtn.customerId,
+            address: qtn.address,
+            customerPO: qtn.customerPO,
+            tags: qtn.tags,
+            estimatedDeliveryDate: qtn.estimatedDeliveryDate,
+            dateValidaty: qtn.dateValidaty,
+            creditTermId: qtn.creditTermId,
+            shipmentTermId: qtn.shipmentTermId,
+            shipmentMethodId: qtn.shipmentMethodId,
+            shipmentService: qtn.shipmentService,
+            shipmentCost: qtn.shipmentCost,
+            shipmentStatus: 'In Progress',
+            paymentStatus: 'In Progress',
+            additionalCharges: qtn.additionalCharges,
+            items: qtn.items,
+            totalQty: qtn.totalQty,
+            total: qtn.total,
+            totalAdditionalCharges: qtn.totalAdditionalCharges,
+            discount: qtn.discount,
+            tax: qtn.tax,
+            grandTotal: qtn.grandTotal,
+            status: 'Open',
+            userId: req.user._id
+        })
+        return sales.save()
+    })
+    .then(result => {
+        Quotations.findById(quotationId)
+        .then(quotaiton => {
+            quotaiton.salesOrderId = result._id
+            quotaiton.status = 'Issued'
+            quotaiton.save()
+        })
+        activity('insert','Sales Order', result.customerId, result._id, result.no, req.user._id, result, result)
+        res.status(200).json(result);
+    })
+    .catch(err => {
+        res.status(400).send(err);
+    });
+}
+

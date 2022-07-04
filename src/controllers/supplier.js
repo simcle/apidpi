@@ -1,19 +1,22 @@
 const Currencies = require('../models/currencies');
 const PaymentTerms = require('../models/paymentTerm');
 const ShipmentTerms = require('../models/shipmentTerm');
-const ShipmentMethods = require('../models/shipping');
+const ShipmentMethods = require('../models/shipmentMethod');
 const Taxs = require('../models/taxCode');
+const Purchases = require('../models/purchases');
 const Suppliers = require('../models/suppliers');
+const Tasks = require('../models/tasks');
 
 exports.getSuppliers  = (req, res) => {
     const currentPage = req.query.page || 1;
-    const perPage = req.query.perPage || 10
+    const perPage = req.query.perPage || 20
+    const search = req.query.search;
     let totalItems;
-    Suppliers.find() 
+    Suppliers.find({$or: [{name: {$regex: '.*'+search+'.*', $options: 'i'}}, {code: {$regex: '.*'+search+'.*', $options: 'i'}}]}) 
     .countDocuments()
     .then(count => {
         totalItems = count
-        return Suppliers.find()
+        return Suppliers.find({$or: [{name: {$regex: '.*'+search+'.*', $options: 'i'}}, {code: {$regex: '.*'+search+'.*', $options: 'i'}}]})
         .skip((currentPage -1) * perPage)
         .limit(perPage)
         .sort({createdAt: 'desc'})
@@ -23,7 +26,7 @@ exports.getSuppliers  = (req, res) => {
         res.status(200).json({
             data: result,
             pages: {
-                current_pag: currentPage,
+                current_page: currentPage,
                 last_page: last_page
             }
         })
@@ -96,9 +99,45 @@ exports.postSupplier = (req, res) => {
 };
 
 exports.detailSupplier = (req, res) => {
-    Suppliers.findById(req.params.supplierId)
+    const currentPage = req.query.page || 1;
+    const perPage = req.query.perPage || 10
+    let totalItems;
+    const supplierId = req.params.supplierId;
+    
+    const tasks = Tasks.find({documentId: supplierId})
+    const purchases = Purchases.find({supplierId: supplierId})
+    .countDocuments()
+    .then(count => {
+        totalItems = count
+        return Purchases.find({supplierId: supplierId})
+        .skip((currentPage -1) * perPage)
+        .limit(perPage)
+        .sort({createdAt: -1})
+    })
+    const supplier = Suppliers.findById(supplierId)
+    .populate('defaultCurrencyId', 'code')
+    .populate('defaultPaymentTermId', 'code')
+    .populate('defaultShipmentTermId', 'code')
+    .populate('defaultShipmentMethodId', 'code')
+    .populate('defaultTaxId')
+
+    Promise.all([
+        purchases,
+        supplier,
+        tasks
+    ])
     .then(result => {
-        res.status(200).json(result);
+        const last_page = Math.ceil(totalItems / perPage)
+        res.status(200).json({
+            purchases: result[0],
+            supplier: result[1],
+            tasks: result[2],
+            countPurchases: totalItems,
+            pages: {
+                current_page: currentPage,
+                last_page: last_page
+            }
+        });
     })
     .catch(err => {
         res.status(400).send(err);

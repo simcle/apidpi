@@ -3,7 +3,7 @@ const Schema = mongoose.Schema;
 
 const QuotationSchmea = new Schema({
     no: {type: String},
-    salesOrderId: {type: Schema.Types.ObjectId, ref: 'Sale'},
+    salesOrderId: {type: Schema.Types.ObjectId, ref: 'Sales'},
     customerId: {type: Schema.Types.ObjectId, ref: 'Customer'},
     address: {type: Object},
     customerPO: {type: String},
@@ -15,6 +15,7 @@ const QuotationSchmea = new Schema({
     shipmentTermId: {type: Schema.Types.ObjectId, ref: 'ShipmentTerm'},
     shipmentMethodId: {type: Schema.Types.ObjectId, ref: 'Shipping'},
     shipmentService: {type: String},
+    shipmentCost: {type: Number},
     additionalCharges: {type: Array},
     items: [
         {

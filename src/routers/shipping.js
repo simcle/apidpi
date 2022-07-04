@@ -19,6 +19,7 @@ const shippingController = require('../controllers/shipping');
 
 router.get('/shipping', shippingController.getShipping);
 router.post('/shipping', upload.single('logo'), shippingController.postShipping);
+router.post('/services', shippingController.postService);
 router.put('/shipping/:shippingId', upload.single('logo'), shippingController.putShipping)
 router.put('/shipping/service/:shippingId', shippingController.putShippingService);
 

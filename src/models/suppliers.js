@@ -8,11 +8,11 @@ const SupplierSchema = new Schema({
     internalRemarks: {type: String},
     externalRemarks: {type: String},
     tags: {type: Array},
-    defaultCurrencyId: {type: Schema.Types.ObjectId},
-    defaultPaymentTermId: {type: Schema.Types.ObjectId},
-    defaultShipmentTermId: {type: Schema.Types.ObjectId},
-    defaultShipmentMethodId: {type: Schema.Types.ObjectId},
-    defaultTaxId: {type: Schema.Types.ObjectId},
+    defaultCurrencyId: {type: Schema.Types.ObjectId, ref: 'Currency'},
+    defaultPaymentTermId: {type: Schema.Types.ObjectId, ref: 'PaymentTerm'},
+    defaultShipmentTermId: {type: Schema.Types.ObjectId, ref: 'ShipmentTerm'},
+    defaultShipmentMethodId: {type: Schema.Types.ObjectId, ref: 'ShipmentMethod'},
+    defaultTaxId: {type: Schema.Types.ObjectId, ref: 'TaxCode'},
     addressLists: {type: Array},
     contactLists: {type: Array}
 },{

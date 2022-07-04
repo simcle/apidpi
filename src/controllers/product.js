@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
-const {getLinkPreview} = require('link-preview-js');
 const sharp = require('sharp');
-const fs = require('fs')
+const fs = require('fs');
+const axios = require('axios');
 const Brands = require('../models/brands');
 const Categories = require('../models/categories');
 const Currencies = require('../models/currencies');
@@ -15,7 +15,7 @@ exports.getProducts = (req, res) => {
     const allProducts = Products.find().count();
     const activeProducts = Products.find({status: true}).count();
     const deactiveProducts = Products.find({status: false}).count();
-    const products = Products.find().populate('brandId', 'name').limit(20).sort({createdAt: -1})
+    const products = Products.find().populate('brandId', 'name').populate('categoriesId', 'name').limit(20).sort({createdAt: -1})
     Promise.all([
         brands,
         categories,
@@ -65,6 +65,7 @@ exports.getProductFilter = async (req, res) => {
         totalItems = count
         return  Products.find({name: {$regex: '.*'+search+'.*', $options: 'i'}, status: {$in: status}, brandId: brands, categoriesId: categoriesId})
         .populate('brandId', 'name')
+        .populate('categoriesId', 'name')
         .skip((currentPage -1) * perPage)
         .limit(perPage)
         .sort(sort)
@@ -116,6 +117,20 @@ exports.getInventory = (req, res) =>  {
         res.status(400).send(err)
     })
 
+}
+
+exports.getProductInfo = (req, res) => {
+    const productId = req.params.productId;
+    Products.findById(productId)
+    .populate('brandId', 'name')
+    .populate('categoriesId', 'name')
+    .populate('accessories', 'images name sku')
+    .then(result => {
+        res.status(200).json(result);
+    })
+    .catch(err => {
+        res.status(200).send(err)
+    })
 }
 
 exports.createProduct = (req, res) => {
@@ -174,13 +189,17 @@ exports.editProduct = (req, res) => {
 }
 
 exports.getYoutube = (req, res) => {
-    getLinkPreview(req.body.url)
-    .then(result => {
-        res.status(200).json(result);
+    const id = req.body.id
+    const apiKey = 'AIzaSyBQbc-iQW0WA_U1bM077v9IojkKng-sDcw';
+    const baseURL = 'https://www.googleapis.com/youtube/v3/videos';
+    const url = `${baseURL}?key=${apiKey}&part=snippet&id=${id}`
+    axios.get(url)
+    .then(response => {
+        res.status(200).json(response.data.items[0])
     })
     .catch(err => {
-        res.status(400).send(err);
-    });
+        res.status(400).send(err)
+    })
 };
 
 // for edit product

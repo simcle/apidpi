@@ -28,6 +28,7 @@ router.post('/general/tax-codes', generalController.postTaxCode);
 router.put('/general/tax-codes/:taxCodeId', generalController.putTaxCode);
 router.delete('/general/tax-codes/:taxCodeId', generalController.deleteTaxCode);
 
+router.get('/general/credit-terms', generalController.getCreditTerm);
 router.post('/general/credit-terms', generalController.postCreditTerm);
 router.put('/general/credit-terms/:creditTermId', generalController.putCreditTerm);
 router.delete('/general/credit-terms/:creditTermId', generalController.deleteCreditTerm);

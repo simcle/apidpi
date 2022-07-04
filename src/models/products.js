@@ -6,7 +6,7 @@ const ProductSchema = new Schema({
     name: {type: String},
     brandId: {type: Schema.Types.ObjectId, ref: 'Brand'},
     categoriesId: [{type: Schema.Types.ObjectId, ref: 'Category'}],
-    conditions: {type: String},
+    condition: {type: String},
     description: {type: String},
     videos: {type: Array},
     sku: {type: String, unique: true},

@@ -12,5 +12,7 @@ router.get('/product', quotationController.getProduct);
 router.post('/create', quotationController.postQuotation);
 router.post('/duplicate/:quotationId', quotationController.duplicateQuotation);
 router.put('/update/:quotationId', quotationController.putQuotation);
+router.put('/close/:quotationId', quotationController.closeQuotation);
+router.put('/convert/:quotationId', quotationController.convertQuotations);
 
 module.exports = router;

@@ -5,7 +5,7 @@ const Shipping = require('../models/shipping');
 
 // get all shipping data
 exports.getShipping = (req, res) => {
-    Shipping.find()
+    Shipping.find().sort({createdAt: -1})
     .then(result => {
         res.status(200).json(result);
     })
@@ -24,7 +24,7 @@ exports.postShipping = (req, res) => {
     })
     shipping.save()
     .then(() => {
-        Shipping.find()
+        Shipping.find().sort({createdAt: -1})
         .then(result => {
             res.status(201).json(result);
         })
@@ -69,6 +69,30 @@ exports.putShippingService = (req, res) => {
     .catch(err => {
         res.status(400).send(err);
     })
+}
+
+// add service
+exports.postService = (req, res) => {
+    const shippingId = req.body.id ;
+    const services = req.body.services;
+    Shipping.findById(shippingId)
+    .then(ship => {
+        const service = ship.services
+        const arr = service.find(obj => obj.name.toLowerCase() == services.name.toLowerCase())
+        if(arr) {
+            res.status(400).send('service name is already exists')
+        } else {
+            ship.services.push(services)
+            return ship.save()
+        }
+    })
+    .then(result => {
+        res.status(200).json(result)
+    })
+    .catch(err => {
+        console.log(err);
+        res.status(400).send(err);
+    });
 }
 
 // remove image

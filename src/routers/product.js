@@ -58,5 +58,6 @@ router.post('/youtube', productController.getYoutube);
 router.get('/warehouse', productController.getWarehouse);
 router.get('/stock/:productId', productController.getStock);
 router.get('/inventory/:productId', productController.getInventory);
+router.get('/info/:productId', productController.getProductInfo);
 
 module.exports = router;

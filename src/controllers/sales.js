@@ -7,6 +7,9 @@ const AdditionalCharges = require('../models/additionalCharge');
 const TaxCode = require('../models/taxCode');
 const Produts = require('../models/products');
 const Sales = require('../models/sales');
+const Activity = require('../models/activity');
+const Task = require('../models/tasks');
+const activity = require('../modules/activityHistory');
 
 exports.getSales = (req, res) => {
     const currentPage = req.query.page || 1;
@@ -40,14 +43,31 @@ exports.getSales = (req, res) => {
 
 exports.getDetailSales = (req, res) => {
     const salesId = req.params.salesId;
-    Sales.findById(salesId)
+    const sales = Sales.findById(salesId)
     .populate('customerId', 'name code')
     .populate('creditTermId', 'code')
     .populate('shipmentMethodId', 'name')
     .populate('shipmentTermId', 'code')
-    .populate('items.productId', 'name')
+    .populate('items.productId', 'name');
+    const activity = Activity.find({documentId: salesId})
+    .populate('userId', 'name')
+    .populate('updated.items.productId','name')
+    .sort({createdAt: '-1'});
+    const tasks = Task.find({documentId: salesId})
+    .populate('assignee', 'name')
+    .populate('userId', 'name')
+    .sort({createdAt: '-1'});
+    Promise.all([
+        sales,
+        activity,
+        tasks
+    ])
     .then(result => {
-        res.status(200).json(result)
+        res.status(200).json({
+            sales: result[0],
+            activity: result[1],
+            tasks: result[2]
+        })
     })
     .catch(err => {
         res.status(400).send(err);
@@ -96,6 +116,61 @@ exports.createSalse = (req, res) => {
                 return obj
             })
         });
+    })
+};
+
+exports.editSales = (req, res) => {
+    const salesId = req.params.salesId;
+    const creditTerms =  CreditTerms.find().select('_id code').sort({code: '1'}).lean()
+    const shipmentTerms =  ShipmentTerms.find().select('_id code').sort({code: '1'}).lean()
+    const shipmentMethods =  ShipmentMethods.find({status: true}).sort({name: '1'}).lean()
+    const additionalCharges =  AdditionalCharges.find({status: true}).sort({name: '1'}).lean()
+    const taxCodes =  TaxCode.find().sort({code: '1'}).lean()
+    const sales = Sales.findById(salesId).populate('items.productId','name')
+
+    Promise.all([
+        creditTerms,
+        shipmentTerms,
+        shipmentMethods,
+        additionalCharges,
+        taxCodes,
+        sales
+    ])
+    .then(async (result) => {
+        const customerId = result[5].customerId;
+        const customer = await Customers.findById(customerId)
+        res.status(200).json({
+            creditTerms: result[0].map(obj => {
+                obj.id = obj._id, 
+                obj.text = obj.code 
+                return obj
+            }),
+            shipmentTerms: result[1].map(obj => {
+                obj.id = obj._id,
+                obj.text = obj.code
+                return obj
+            }),
+            shipmentMethods: result[2].map(obj => {
+                obj.id = obj._id,
+                obj.text = obj.name
+                return obj
+            }),
+            additionalCharges: result[3].map(obj => {
+                obj.id = obj._id,
+                obj.text = obj.name
+                return obj
+            }),
+            taxCodes: result[4].map(obj => {
+                obj.id = obj.code,
+                obj.text = `${obj.code} (${obj.amount}%)`
+                return obj
+            }),
+            sales: result[5],
+            customer: customer
+        });
+    })
+    .catch(err => {
+        console.log(err);
     })
 }
 
@@ -182,9 +257,46 @@ exports.postSales = (req, res) => {
         return sales.save()
     })
     .then(result => {
+        activity('insert','Sales Order', result.customerId, result._id, result.no, req.user._id, result, result)
         res.status(200).json(result)
     })
     .catch(err => {
         res.status(400).send(err)
     });
 };
+
+exports.putSales = async (req, res) => {
+    const salesId = req.params.salesId;
+    const original = await Sales.findById(salesId).lean()
+    Sales.findById(salesId)
+    .then(sales => {
+        sales.customerId= req.body.customerId,
+        sales.address= req.body.address,
+        sales.customerPO= req.body.customerPO,
+        sales.remarks= req.body.remarks,
+        sales.tags= req.body.tags,
+        sales.estimatedDeliveryDate= req.body.estimatedDeliveryDate,
+        sales.dateValidaty= req.body.dateValidaty,
+        sales.creditTermId= req.body.creditTermId,
+        sales.shipmentTermId= req.body.shipmentTermId,
+        sales.shipmentMethodId= req.body.shipmentMethodId,
+        sales.shipmentService= req.body.shipmentService,
+        sales.additionalCharges= req.body.additionalCharges,
+        sales.items= req.body.items,
+        sales.totalQty= req.body.totalQty,
+        sales.total= req.body.total,
+        sales.totalAdditionalCharges= req.body.totalAdditionalCharges,
+        sales.discount= req.body.discount,
+        sales.tax= req.body.tax,
+        sales.grandTotal= req.body.grandTotal
+        return sales.save()
+    })
+    .then(result => {
+        activity('update','Sales Order', result.customerId, result._id, result.no, req.user._id, original, result)
+        res.status(200).json(result)
+    })
+    .catch(err => {
+        console.log(err);
+        res.status(400).send(err)
+    })
+}

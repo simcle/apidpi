@@ -55,6 +55,7 @@ exports.editTask = (req, res) => {
     const taskId = req.params.taskId;
     Task.findById(taskId)
     .then(task => {
+        task.type = req.body.type
         task.title = req.body.title,
         task.details = req.body.details,
         task.assignee = req.body.assignee,
