@@ -44,6 +44,7 @@ exports.getSales = (req, res) => {
 exports.getDetailSales = (req, res) => {
     const salesId = req.params.salesId;
     const sales = Sales.findById(salesId)
+    .populate('quotationId', 'customerPO')
     .populate('customerId', 'name code')
     .populate('creditTermId', 'code')
     .populate('shipmentMethodId', 'name')
@@ -222,11 +223,11 @@ exports.postSales = (req, res) => {
     Sales.findOne({createdAt: {$gte: today}}).sort({createdAt: -1})
     .then(result => {
         if(result) {
-            const no = result.no.substring(15)
+            const no = result.no.substring(16)
             const newNo = parseInt(no) + 1
-            newID = `${dd}${mm}/DPI/SO/${yy}/${newNo}`
+            newID = `${dd}${mm}/DPI/INV/${yy}/${newNo}`
         } else {
-            newID = `${dd}${mm}/DPI/SO/${yy}/1`
+            newID = `${dd}${mm}/DPI/INV/${yy}/1`
         }
         const sales = new Sales({
             no: newID,
