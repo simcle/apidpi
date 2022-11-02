@@ -62,4 +62,6 @@ router.get('/info/:productId', productController.getProductInfo);
 // New
 router.get('/search', productController.productSearch);
 router.get('/auto-search', productController.getProductAutoSearc);
+router.delete('/delete/:productId', productController.deleteProduct);
+
 module.exports = router;

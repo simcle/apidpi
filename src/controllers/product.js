@@ -520,4 +520,15 @@ exports.productSearch = (req, res) => {
     })
 }
 
+exports.deleteProduct = (req, res) => {
+    const productId = req.params.productId
+    Products.findByIdAndDelete(productId)
+    .then(() => {
+        Inventory.deleteOne({productId: productId})
+        .then(() => {
+            res.status(200).json('OK')
+        })
+    })
+}
+
 
