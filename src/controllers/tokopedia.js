@@ -84,12 +84,8 @@ exports.exportProduct = async (req, res) => {
                     } else {
                         measurements.weight.unit = 'kg'
                     }
+                    sku = new Date().getTime()
     
-                    if(data.other.sku) {
-                        sku = data.other.sku
-                    } else {
-                        sku = new Date().getTime()
-                    }
                     tokopediaUrl = data.other.url
     
                     let images = []

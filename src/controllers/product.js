@@ -75,7 +75,6 @@ exports.getProductFilter = async (req, res) => {
     } else {
         categoriesIds = {}
     }
-    console.log(edited);
     let sort = {}
     sort[sortKey] = parseInt(sortOrder)
     Products.find({$and: [{name: {$regex: '.*'+search+'.*', $options: 'i'}}, status, brandIds, categoriesIds, edited]})
