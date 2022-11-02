@@ -34,7 +34,7 @@ const ProductSchema = new Schema({
     stock: {type: Number, default: 0},
     tokopediaId: {type: String},
     tokopediaUrl: {type: String},
-    isEdited: {type: Boolean, default: false}
+    isEdited: {type: Boolean, default: true}
 },{
     timestamps: true
 });

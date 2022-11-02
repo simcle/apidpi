@@ -10,6 +10,7 @@ const Inventories = require('../models/inventory')
 const path = require('path')
 const sharp = require('sharp');
 const inventory = require('../models/inventory');
+const pusher = require('../modules/pusher');
 
 const authenticate = async () => {
     let result = await axios.post('https://accounts.tokopedia.com/token?grant_type=client_credentials', {}, {
@@ -34,7 +35,7 @@ async function dwonloadImage (url, fileName) {
 exports.exportProduct = async (req, res) => {
     let token = await authenticate()
     let page = 1
-    
+    let productCount = 0
     async function getData (p) {
         let name, condition, description, sku, sellingPrice, measurements = {
             width: {value: '', unit: 'mm'},
@@ -92,41 +93,48 @@ exports.exportProduct = async (req, res) => {
                     tokopediaUrl = data.other.url
     
                     let images = []
-                    // for(img of data.pictures) {
-                    //     const fileName = new Date().getTime().toString()+'.png'
-                    //     images.push(fileName)
-                    //     await dwonloadImage(img.OriginalURL, fileName)
-                    // }
-                    // const product = new Products({
-                    //     images: images,
-                    //     name: name,
-                    //     condition: condition,
-                    //     description: description,
-                    //     sku: sku,
-                    //     sellingPrice: sellingPrice,
-                    //     measurements: measurements,
-                    //     tokopediaId: tokopediaId,
-                    //     tokopediaUrl: tokopediaUrl,
-                    //     status: status
-                    // })
-                    // let result = await product.save()
-                    // const inventory = new Inventories({
-                    //     warehouseId: warehouse._id,
-                    //     productId: result._id,
-                    //     sectionId: warehouse.sections[0],
-                    //     isDefault: true,
-                    //     qty: 0
-                    // })
-                    // await inventory.save()
+                    for(img of data.pictures) {
+                        const fileName = new Date().getTime().toString()+'.png'
+                        images.push(fileName)
+                        await dwonloadImage(img.OriginalURL, fileName)
+                    }
+                    const product = new Products({
+                        images: images,
+                        name: name,
+                        condition: condition,
+                        description: description,
+                        sku: sku,
+                        sellingPrice: sellingPrice,
+                        measurements: measurements,
+                        tokopediaId: tokopediaId,
+                        tokopediaUrl: tokopediaUrl,
+                        status: status
+                    })
+                    let result = await product.save()
+                    const inventory = new Inventories({
+                        warehouseId: warehouse._id,
+                        productId: result._id,
+                        sectionId: warehouse.sections[0],
+                        isDefault: true,
+                        qty: 0
+                    })
+                    await inventory.save()
+                    productCount+=1
+                    pusher.trigger('tokopedia', 'products', {
+                        message: productCount
+                    })
                 }
             }
-            console.log('done')
             // IF PER PAGE > 50
-            // if(result.data.data.length == 50) {
-            //     console.log(page+=1);
-            //     page+=1
-            //     getData(page)
-            // }
+            if(result.data.data.length == 50) {
+                page+=1
+                pusher.trigger('tokopedia', 'pages', {
+                    message: page
+                })
+                getData(page)
+            } else {
+                res.status(200).json('OK')
+            }
         } catch(err) {
             console.log(err);
             res.status(400).send(err.data)

@@ -47,23 +47,42 @@ exports.getProductFilter = async (req, res) => {
     const search = req.query.search || '';
     const currentPage = req.query.page || 1;
     const perPage = req.query.perPage || 20;
-    const status = req.query.status;
+    let status
+    let edited
     const brands = req.query.brands;
     const categories = req.query.categories;
     const sortKey = req.query.sortKey;
     const sortOrder = req.query.sortOrder;
-    if(categories) {
-        categoriesId = {$in: categories}
+    let brandIds
+    let categoriesIds
+    if(req.query.edited == 'true') {
+        edited = {isEdited: req.query.edited}
     } else {
-        categoriesId = {$exists: true}
+        edited = {}
     }
+    if(req.query.status) {
+        status = {status: {$in: req.query.status}}
+    } else {
+        status = {}
+    }
+    if(brands) {
+        brandIds = {brandId: {$in: brands}}
+    } else {
+        brandIds = {}
+    }
+    if(categories) {
+        categoriesIds = {categoriesId: {$in: categories}}
+    } else {
+        categoriesIds = {}
+    }
+    console.log(edited);
     let sort = {}
     sort[sortKey] = parseInt(sortOrder)
-    Products.find({name: {$regex: '.*'+search+'.*', $options: 'i'}, status: {$in: status}, brandId: brands, categoriesId: categoriesId})
+    Products.find({$and: [{name: {$regex: '.*'+search+'.*', $options: 'i'}}, status, brandIds, categoriesIds, edited]})
     .countDocuments()
     .then(count => {
         totalItems = count
-        return  Products.find({name: {$regex: '.*'+search+'.*', $options: 'i'}, status: {$in: status}, brandId: brands, categoriesId: categoriesId})
+        return  Products.find({$and: [{name: {$regex: '.*'+search+'.*', $options: 'i'}}, status, brandIds, categoriesIds, edited]})
         .populate('brandId', 'name')
         .populate('categoriesId', 'name')
         .skip((currentPage -1) * perPage)
@@ -285,7 +304,8 @@ exports.postProduct = (req, res) => {
                 accessories: JSON.parse(req.body.accessories),
                 preorder: JSON.parse(req.body.preorder),
                 stock: req.body.qtyStock,
-                status: true
+                status: true,
+                isEdited: false
             })
             products.save ()
             .then((result) => {
@@ -323,7 +343,6 @@ exports.putProduct = async (req, res) => {
     const imagesList = [];
     const attachments = req.files.files
     const attachmentLists = []
-   
     Inventory.findOne({$and:[{productId: req.params.productId}, {warehouseId: req.body.warehouseId}]})
     .then(inv => {
         if(!inv) {
@@ -386,6 +405,7 @@ exports.putProduct = async (req, res) => {
         product.notes = JSON.parse(req.body.notes),
         product.accessories = JSON.parse(req.body.accessories),
         product.preorder = JSON.parse(req.body.preorder)
+        product.isEdited = false
         return product.save();
     })
     .then(result => {
