@@ -6,12 +6,12 @@ const TaskSchema = new Schema ({
     documentId: {type: Schema.Types.ObjectId},
     documentName: {type: String},
     route: {type: String},
-    title: {type: String},
-    details: {type: String},
+    description: {type: String},
     dueDate: {type: Date},
     assignee: {type: Schema.Types.ObjectId, ref: 'User'},
     status: {type: String},
-    userId: {type: Schema.Types.ObjectId, ref: 'User'}
+    userId: {type: Schema.Types.ObjectId, ref: 'User'},
+    edited: {type: Boolean, default: false}
 }, {
     timestamps: true
 })

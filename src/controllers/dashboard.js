@@ -1,13 +1,11 @@
 const Tasks = require('../models/tasks');
 const Suppliers = require('../models/suppliers');
 const Customers = require('../models/customers');
-const Quotations = require('../models/quotations');
 const Sales = require('../models/sales');
 
 exports.getDashboard = (req, res) => {
     const date = new Date();
     const today = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-    const quotations = Quotations.find({createdAt: {$gte: today}}).select('_id createdAt')
     const sales = Sales.find({createdAt: {$gte: today}}).select('_id createdAt')
     const tasks = Tasks.find({status: 'In Progress', type: 'Task'})
     const suppliers = Suppliers.aggregate([

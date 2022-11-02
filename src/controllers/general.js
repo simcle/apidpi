@@ -467,8 +467,10 @@ exports.putWarehouseStatus = (req, res) => {
 }
 
 exports.putWarehouseSetDefault = async (req, res) => {
+    await Inventory.updateMany({}, {isDefault: false})
     await Warehouse.updateMany({}, {isDefault: false})
     await Warehouse.findByIdAndUpdate(req.params.warehouseId, {isDefault: true})
+    await Inventory.updateMany({warehouseId: req.params.warehouseId}, {isDefault: true})
     Warehouse.find().populate('sections').sort({order: 'asc'})
     .then(result => {
         res.status(200).json(result);

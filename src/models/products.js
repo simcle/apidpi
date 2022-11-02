@@ -10,20 +10,31 @@ const ProductSchema = new Schema({
     description: {type: String},
     videos: {type: Array},
     sku: {type: String, unique: true},
-    isSerialNumber: {type: Boolean},
-    currency: {type: String},
-    currencySymbol: {type: String},
-    purchasePrice: {type: Number},
+    isSerialNumber: {type: Boolean, default: false},
+    currency: {type: String, default: ''},
+    currencySymbol: {type: String, default: ''},
+    purchasePrice: {type: Number, default: 0},
     sellingPrice: {type: Number},
-    netPrice: {type: Number},
+    netPrice: {type: Number, default: 0},
     wholesale: {type: Array},
     measurements: {type: Object},
-    notes: {type: Object},
+    notes: {
+        status: {type: Boolean, default: false},
+        internal: {type: String, default: ''},
+        external: {type: String, default: ''},
+    },
     attachments: {type: Array},
     accessories: [{type: Schema.Types.ObjectId, ref: 'Product'}],
-    preorder: {type: Object},
-    status: {type: Boolean, default: true},
-    stock: {type: Number, default: 0}
+    preorder: {
+        isActive: {type: Boolean, default: false},
+        duration: {type: String, default: ''},
+        timeUnit: {type: String, default: 'DAY'}
+    },
+    status: {type: Boolean, default: false},
+    stock: {type: Number, default: 0},
+    tokopediaId: {type: String},
+    tokopediaUrl: {type: String},
+    isEdited: {type: Boolean, default: false}
 },{
     timestamps: true
 });

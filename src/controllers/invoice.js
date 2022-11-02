@@ -1,31 +1,28 @@
 const mongoose = require('mongoose');
-const Customers = require('../models/customers');
-const CreditTerms = require('../models/creditTerm');
-const ShipmentTerms = require('../models/shipmentTerm');
-const ShipmentMethods = require('../models/shipping');
-const AdditionalCharges = require('../models/additionalCharge');
-const TaxCode = require('../models/taxCode');
-const Produts = require('../models/products');
-const Sales = require('../models/sales');
-const Activity = require('../models/activity');
-const Task = require('../models/tasks');
-const activity = require('../modules/activityHistory');
-const Deliveries = require('../models/delivery');
-const moduleDelivery = require('../modules/delivery');
+const Invoices = require('../models/invoice');
+const Sales = require('../models/sales')
+const Payments = require('../models/payment');
 
-exports.getSales = (req, res) => {
+exports.getInvoive = (req, res) => {
     const currentPage = req.query.page || 1;
     const perPage = req.query.perPage || 20;
     const search = req.query.search;
     const filter = req.query.filter;
+    const salesId = req.query.salesId
     let totalItems;
     let query;
+    let sales;
     if(filter) {
-        query = {invoiceStatus: {$in: filter}}
+        query = {status: {$in: filter}}
     } else {
         query = {}
     }
-    Sales.aggregate([
+    if(salesId) {
+        sales = {salesId: mongoose.Types.ObjectId(salesId)}
+    } else {
+        sales = {}
+    }
+    Invoices.aggregate([
         {$lookup: {
             from: 'customers',
             localField: 'customerId',
@@ -72,17 +69,18 @@ exports.getSales = (req, res) => {
             'customer': '$customer.displayName'
         }},
         {$match: {
-            $and: [{status: 'Sales Order'}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {salesNo: {$regex: '.*'+search+'.*', $options:'i'}}]}, query]
+            $and: [{$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {invoiceNo: {$regex: '.*'+search+'.*', $options:'i'}}]}, query, sales]
         }},
         {$count: 'count'}
     ])
-    .then(count => {
+    .then (count => {
         if(count.length > 0) {
             totalItems = count[0].count
         } else {
             totalItems = 0
         }
-        return Sales.aggregate([
+
+        return Invoices.aggregate([
             {$lookup: {
                 from: 'customers',
                 localField: 'customerId',
@@ -129,9 +127,9 @@ exports.getSales = (req, res) => {
                 'customer': '$customer.displayName'
             }},
             {$match: {
-                $and: [{status: 'Sales Order'}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {salesNo: {$regex: '.*'+search+'.*', $options:'i'}}]}, query]
+                $and: [{$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {invoiceNo: {$regex: '.*'+search+'.*', $options:'i'}}]}, query, sales]
             }},
-            {$sort: {salesCreated: -1}},
+            {$sort: {createdAt: -1}},
             {$skip: (currentPage -1) * perPage},
             {$limit: perPage}
         ])
@@ -151,14 +149,102 @@ exports.getSales = (req, res) => {
         })
     })
     .catch(err => {
-        res.status(400).send(err);
+        res.status(400).send(err)
     })
 }
 
-exports.getDetailSales = (req, res) => {
-    const salesId = mongoose.Types.ObjectId(req.params.salesId);
-    const sales = Sales.aggregate([
-        {$match: {_id: salesId}},
+exports.createInvoice = async (req, res) => {
+    const inv =  await Invoices.find({$and:[{salesId: req.body._id}, {type: 'Regular'} ]}).select('grandTotal')
+    let total = 0
+    for(let i=0; i < inv.length; i++) {
+        total += inv[i].grandTotal
+    }
+    const grandTotal = req.body.grandTotal - total
+
+    const items = req.body.items.map(obj => {
+        obj.qty = obj.qty - obj.invoiced
+        return obj
+    }).filter(obj => obj.qty > 0)
+
+    const downPayments = req.body.downPayments.filter(obj => obj.status == 'Nothing')
+
+    let invoice;
+    if(req.body.type == 'Regular') {
+        invoice = new Invoices({
+            invoiceNo: 'Draft Invoice',
+            salesId: req.body._id,
+            customerId: req.body.customerId,
+            dueDate: new Date(),
+            confirmDate: new Date(),
+            paymentStatus: 'Not Paid',
+            status: 'Draft',
+            type: req.body.type,
+            items: items,
+            downPayments: downPayments,
+            total: req.body.total,
+            additionalCharges: req.body.additionalCharges,
+            totalAdditionalCharges: req.body.totalAdditionalCharges,
+            discount: req.body.discount,
+            tax: req.body.tax,
+            shipping: req.body.shipping,
+            grandTotal: grandTotal,
+            amountDue: grandTotal,
+            offerConditions: req.body.offerConditions,
+            userID: req.user._id
+        })
+    } else {
+        invoice = new Invoices({
+            invoiceNo: 'Draft Invoice',
+            salesId: req.body._id,
+            customerId: req.body.customerId,
+            dueDate: new Date(),
+            confirmDate: new Date(),
+            paymentStatus: 'Not Paid',
+            status: 'Draft',
+            type: req.body.type,
+            items: req.body.items,
+            downPayments: req.body.downPayments,
+            grandTotal: req.body.downPayments[0].amount,
+            amountDue: req.body.downPayments[0].amount,
+            offerConditions: req.body.offerConditions,
+            userID: req.user._id
+        })
+    }
+    invoice.save()
+    .then(result => {
+        Sales.findById(result.salesId)
+        .then(sales => {
+            if(result.type == 'Regular') {
+                let dp = sales.downPayments.map(obj => {
+                    obj.status = 'To Invoice'
+                    return obj
+                })
+                let items = sales.items.map(obj => {
+                    obj.invoiced = obj.qty
+                    return obj
+                })
+                sales.invoiceStatus = 'Fully Invoiced'
+                sales.items = items
+                sales.downPayments = dp
+            } else {
+                sales.invoiceStatus = 'To Invoice'
+                sales.downPayments.push(result.downPayments[0])
+            }
+            return sales.save()
+        })
+        .then(result => {
+            res.status(200).json(result)
+        })
+    })
+    .catch(err => {
+        res.status(400).send(err)
+    })
+}
+
+exports.getDetailInvoice = (req, res) => {
+    const invoiceId = mongoose.Types.ObjectId(req.params.invoiceId);
+    const invoice = Invoices.aggregate([
+        {$match: {_id: invoiceId}},
         {$lookup: {
             from: 'customers',
             localField: 'customerId',
@@ -201,6 +287,45 @@ exports.getDetailSales = (req, res) => {
             as: 'customer'
         }},
         {$unwind: '$customer'},
+        {$lookup: {
+            from: 'sales',
+            localField: 'salesId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    salesNo: 1
+                }}
+            ],
+            as: 'sales'
+        }},
+        {$unwind: {
+            path: '$sales',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
+            from: 'pointofsales',
+            localField: 'salesId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    posNo: 1
+                }}
+            ],
+            as: 'pos'
+        }},
+        {$unwind: {
+            path: '$pos',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$addFields: {
+            salesNo: {
+                $cond: {
+                    if: {$ifNull: ['$sales.salesNo', false]},
+                    then: '$sales.salesNo',
+                    else: '$pos.posNo'
+                }
+            }
+        }},
         {$unwind: '$items'},
         {$lookup: {
             from: 'products',
@@ -238,162 +363,60 @@ exports.getDetailSales = (req, res) => {
             }
         }}
     ])
-    const activities = Activity.aggregate([
-        {$match: {documentId: salesId}},
-        {$lookup: {
-            from: 'users',
-            localField: 'userId',
-            foreignField: '_id',
-            pipeline: [
-                {$project: {
-                    _id: 1,
-                    name: 1
-                }}
-            ],
-            as: 'userId'
-        }},
-        {$unwind: '$userId'},
-        {$unwind: '$original.items'},
-        {$lookup: {
-            from: 'products',
-            localField: 'original.items.productId',
-            foreignField: '_id',
-            pipeline: [
-                {$project: {
-                    _id: 0,
-                    name: 1
-                }},
-            ],
-            as: 'original.items.product'
-        }},
-        {$unwind: '$original.items.product'},
-        {$addFields: {
-            'original.items.name': '$original.items.product.name'
-        }},
-        {$unset: 'original.items.product'},
-        {$group: {
-            _id:'$_id',
-            original: {$push: '$original.items'},
-            root: {$first: '$$ROOT'}
-        }},
-        {$project: {
-            'root.original.items' : 0,
-        }},
-        {$addFields: {
-            'root.original.items': '$original'
-        }},
-        {$replaceRoot: {
-            newRoot: '$root'
-        }},
-        {$unwind: '$updated.items'},
-        {$lookup: {
-            from: 'products',
-            localField: 'updated.items.productId',
-            foreignField: '_id',
-            pipeline: [
-                {$project: {
-                    _id: 0,
-                    name: 1
-                }},
-            ],
-            as: 'updated.items.product'
-        }},
-        {$unwind: '$updated.items.product'},
-        {$addFields: {
-            'updated.items.name': '$updated.items.product.name'
-        }},
-        {$unset: 'updated.items.product'},
-        {$group: {
-            _id:'$_id',
-            updated: {$push: '$updated.items'},
-            root: {$first: '$$ROOT'}
-        }},
-        {$project: {
-            'root.updated.items' : 0,
-        }},
-        {$addFields: {
-            'root.updated.items': '$updated'
-        }},
-        {$replaceRoot: {
-            newRoot: '$root'
-        }},
-        {$sort: {createdAt: -1}}
-    ])
+    const payments = Payments.find({invoiceId: invoiceId})
     Promise.all([
-        sales,
-        activities
+        invoice,
+        payments
     ])
     .then(result => {
         res.status(200).json({
-            sales: result[0][0],
-            activities: result[1]
-        });
-    })
-    .catch(err => {
-        res.status(400).send(err);
-    });
-}
-
-exports.updateSales = async (req, res) => {
-    const salesId = req.params.salesId;
-    const original = await Sales.findById(salesId).lean()
-
-    Sales.findById(salesId)
-    .then(sales => {
-            const invoiced = req.body.items.filter(obj => obj.qty > obj.invoiced)
-            const items = req.body.items
-            items.map(obj => {
-                obj.status = true
-                return obj
-            })
-            if(invoiced.length > 0) {
-                sales.invoiceStatus = 'To Invoice'
-            }
-            sales.customerId = req.body.customerId
-            sales.customerPO = req.body.customerPO
-            sales.remarks = req.body.remarks
-            sales.tags = req.body.tags
-            sales.estimatedDeliveryTime = req.body.estimatedDeliveryTime
-            sales.dateValidaty = req.body.dateValidaty
-            sales.additionalCharges = req.body.additionalCharges
-            sales.items = items
-            if(req.body.shipping.shipmentMethodId) {
-                sales.shipping = req.body.shipping
-            }
-            sales.totalQty = req.body.totalQty
-            sales.total = req.body.total
-            sales.totalAdditionalCharges = req.body.totalAdditionalCharges
-            sales.discount = req.body.discount
-            sales.tax = req.body.tax
-            sales.grandTotal = req.body.grandTotal
-            sales.offerConditions = req.body.offerConditions
-        return sales.save()
-    })
-    .then(async (result) => {
-        activity('update','Sales Order', result.customerId, result._id, result.salesNo, req.user._id, original, result)
-        const items = result.items
-        items.map(obj => {
-            if(obj.delivered > 0) {
-                obj.qty = obj.qty - obj.delivered
-            } 
-            return obj  
+            invoice: result[0][0],
+            payments: result[1]
         })
-        result.items = items
-        let deliveryItems = items.filter(obj => obj.qty > 0)
-        const delivery = await Deliveries.findOne({$and: [{salesId: salesId}, {status: 'Ready'}]})
-        if(delivery) {
-            delivery.items = deliveryItems
-            delivery.shipping = result.shipping
-            await delivery.save()
-        } else {
-            if(deliveryItems.length > 0) {
-                await moduleDelivery(result, req.user._id)
-            }
-        }
-        res.status(200).json(result)
     })
     .catch(err => {
         console.log(err);
         res.status(400).send(err)
     })
-};
+}
+
+exports.confirmInvoice = (req, res) => {
+    const date = new Date();
+    let dd = date.getDate();
+    let mm = date.getMonth() +1;
+    let yy = date.getFullYear().toString().substring(2);
+    dd = checkTime(dd);
+    mm = checkTime(mm)
+
+    function checkTime (i) {
+        if(i < 10) {
+            i = `0${i}`
+        }
+        return i
+    }
+
+    let today = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+    const invoiceId = req.params.invoiceId
+    Invoices.findById(invoiceId)
+    .then(async(invoice )=> {
+        let invoiceNo = await Invoices.findOne({$and: [{status: 'Posted'},  {confirmDate: {$gte: today}}]}).sort({confirmDate: -1})
+        let newID
+        if(invoiceNo) {
+            const no = invoiceNo.invoiceNo.substring(16)
+            const newNo = parseInt(no)+1
+            newID = `${dd}${mm}/DPI/INV/${yy}/${newNo}`
+        } else {
+            newID = `${dd}${mm}/DPI/INV/${yy}/1`
+        }
+        invoice.confirmDate = new Date()
+        invoice.invoiceNo = newID
+        invoice.status = 'Posted'
+        return invoice.save()
+    })
+    .then(result => {
+        res.status(200).json(result)
+    })
+    .catch(err => {
+        res.status(400).send(err)
+    })
+}

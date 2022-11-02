@@ -1,78 +1,167 @@
 const mongoose = require('mongoose');
-const CustomerGroup = require('../models/customerGroups');
 const Provinces = require('../models/provinces');
 const Users = require('../models/users');
 const CreditTerms = require('../models/creditTerm');
 const ShipmentTerms = require('../models/shipmentTerm');
 const Shipings = require('../models/shipping');
 const Taxs = require('../models/taxCode');
-const Customer = require('../models/customers');
+const Customers = require('../models/customers');
 const Tasks = require('../models/tasks');
+const fs = require('fs');
+const path = require('path');
+const sharp = require('sharp');
 
 exports.getCustomers = (req, res) => {
     const currentPage = req.query.page || 1;
     const perPage = req.query.perPage || 20;
     const search = req.query.search;
-    const filter = req.query.filter;
-    let query = ''
-    if(filter == 'total customer') {
-        query= {$exists: true}
-    } else if(filter == null) {
-        query = {$in: null}
-    } else {
-        query = filter
-    }
     let totalItems;
-    const customerGroup = Customer.aggregate([
-        {$group: {
-            _id: '$customerGroupId', count: {$sum: 1},
-        }},
-        {$lookup: {
-            from: 'customergroups',
-            localField: '_id',
-            foreignField: '_id',
-            as: 'customerGroup'
+    const customers = Customers.aggregate([
+        {$graphLookup: {
+            from: 'customers',
+            startWith: {$toObjectId: '$parentId'},
+            connectFromField: 'parentId',
+            connectToField: '_id',
+            as: 'parents'  
         }},
         {$unwind: {
-            path: '$customerGroup',
+            path: '$parents',
             preserveNullAndEmptyArrays: true
         }},
-        {$sort: {count: -1}},
-        {$project: {
-            _id: 1,
-            count: 1,
-            group: '$customerGroup.name'
-        }},
-    ]) 
-    const customer = Customer.find({name: {$regex: '.*'+search+'.*', $options: 'i'}, customerGroupId: query})
-    .countDocuments()
+        {
+            $sort: {
+                "parents._id": 1
+            },
+        },
+        {
+            $group: {
+                _id: "$_id",
+                parents: { $first: "$parents" },
+                root: { $first: "$$ROOT" }
+            }
+        },
+        {
+            $project: {
+                parent: '$parents.name',
+                name: '$root.name',
+                displayName: {
+                    $cond: {
+                        if: {$ifNull: ['$parents.name', false]},
+                        then: {$concat: ['$parents.name', ', ', '$root.name']},
+                        else: '$root.name'
+                    }
+                }
+            }
+        },
+        {
+            $sort: {
+                "displayName": 1 
+            }
+        },
+        {
+            $match: {displayName: {$regex: '.*'+search+'.*', $options: 'i'}}
+        },
+        {
+            $count: 'count'
+        }
+    ])
     .then(count => {
-        totalItems = count
-        return Customer.find({name: {$regex: '.*'+search+'.*', $options: 'i'}, customerGroupId: query})
-        .populate('customerGroupId', 'name')
-        .populate('userId', 'name')
-        .skip((currentPage -1) * perPage)
-        .limit(perPage)
-        .sort({createdAt: 'desc'})
-        
+        if(count.length > 0) {
+            totalItems = count[0].count
+        } else {
+            totalItems = 0
+        }
+        return Customers.aggregate([
+            {
+                $lookup: {
+                    from: 'users',
+                    localField: 'userId',
+                    foreignField: '_id',
+                    as: 'user'
+
+                }
+            },
+            {
+                $unwind: {
+                    path: '$user',
+                    preserveNullAndEmptyArrays: true
+                }
+            },
+            {$graphLookup: {
+                from: 'customers',
+                startWith: {$toObjectId: '$parentId'},
+                connectFromField: 'parentId',
+                connectToField: '_id',
+                as: 'parents'  
+            }},
+            {$unwind: {
+                path: '$parents',
+                preserveNullAndEmptyArrays: true
+            }},
+            {
+                $sort: {
+                    "parents._id": 1
+                },
+            },
+            {
+                $group: {
+                    _id: "$_id",
+                    parents: { $first: "$parents" },
+                    user: {$first: "$user"},
+                    root: { $first: "$$ROOT" }
+                }
+            },
+            {
+                $project: {
+                    parent: '$parents.name',
+                    name: '$root.name',
+                    address: '$root.address',
+                    contact: '$root.contact',
+                    displayName: {
+                        $cond: {
+                            if: {$ifNull: ['$parents.name', false]},
+                            then: {$concat: ['$parents.name', ', ', '$root.name']},
+                            else: '$root.name'
+                        }
+                    },
+                    user: '$user.name',
+                }
+            },
+            {
+                $sort: {
+                    "displayName": 1 
+                }
+            },
+            {
+                $match: {displayName: {$regex: '.*'+search+'.*', $options: 'i'}}
+            },
+            {
+                $skip: (currentPage -1) * perPage
+            }, 
+            {
+                $limit: perPage
+            }
+        ])
     })
-    
     Promise.all([
-        customerGroup,
-        customer
+        customers
     ])
     .then(result => {
         const last_page = Math.ceil(totalItems / perPage)
+        const pageValue = currentPage * perPage - perPage + 1
+        const pageLimit = pageValue + result[0].length -1
         res.status(200).json({
-            groups: result[0],
-            data: result[1],
+            data: result[0],
             pages: {
                 current_page: currentPage,
-                last_page: last_page
-            }
+                last_page: last_page,
+                pageValue: pageValue+'-'+pageLimit,
+                totalItems: totalItems 
+            },
         })
     })
     .catch(err => {
+        console.log(err);
         res.status(400).send(err)
     })
 }
@@ -84,121 +173,70 @@ exports.deatailCustomer = (req, res) => {
     .populate('userId', 'name')
     .sort({createdAt: '-1'});
 
-    const customer = Customer.aggregate([
+    const customer = Customers.aggregate([
         {$match: {_id: customerId}},
-        {$lookup: {
-            from: 'activities',
-            localField: '_id',
-            foreignField: 'parentId',
-            pipeline: [
-                {$lookup: {
-                    from: 'users',
-                    localField: 'userId',
-                    foreignField: '_id',
-                    as: 'user',
-                }},
-                {$unwind: '$user'},
-                {$project: {
-                    document: 1,
-                    documentName: 1,
-                    documentId: 1,
-                    event: 1,
-                    createdAt: 1,
-                    user: '$user.name'
-                }}
-            ],
-            as: 'histories'
+        {
+            $lookup: {
+                from: 'users',
+                localField: 'userId',
+                foreignField: '_id',
+                as: 'user'
+
+            }
+        },
+        {
+            $unwind: {
+                path: '$user',
+                preserveNullAndEmptyArrays: true
+            }
+        },
+        {$graphLookup: {
+            from: 'customers',
+            startWith: {$toObjectId: '$_id'},
+            connectFromField: '_id',
+            connectToField: 'parentId',
+            as: 'children',
+            maxDepth: 0
         }},
-        {$lookup: {
-            from: 'customergroups',
-            localField: 'customerGroupId',
-            foreignField: '_id',
-            pipeline: [
-                {$project: {
-                    name: 1
-                }}
-            ],
-            as: 'customerGroup'
+        {$graphLookup: {
+            from: 'customers',
+            startWith: {$toObjectId: '$parentId'},
+            connectFromField: 'parentId',
+            connectToField: '_id',
+            as: 'parents'  
         }},
         {$unwind: {
-            path: '$customerGroup',
+            path: '$parents',
             preserveNullAndEmptyArrays: true
         }},
-        {$lookup: {
-            from: 'creditterms',
-            localField: 'defaultCreditTermId',
-            foreignField: '_id',
-            pipeline: [
-                {$project: {
-                    code: 1
-                }}
-            ],
-            as: 'creditTerm'
-        }},
-        {$unwind: {
-            path: '$creditTerm',
-            preserveNullAndEmptyArrays: true
-        }},
-        {$lookup: {
-            from: 'shipmentterms',
-            localField: 'defaultShipmentTermId',
-            foreignField: '_id',
-            pipeline: [
-                {$project: {
-                    code: 1
-                }}
-            ],
-            as: 'shipmentTerm'
-        }},
-        {$unwind: {
-            path: '$shipmentTerm',
-            preserveNullAndEmptyArrays: true
-        }},
-        {$lookup: {
-            from: 'shippings',
-            localField: 'defaultShipmentMethodId',
-            foreignField: '_id',
-            pipeline: [
-                {$project: {
-                    name:1
-                }}
-            ],
-            as: 'shipmentMethod'
-        }},
-        {$unwind: {
-            path: '$shipmentMethod',
-            preserveNullAndEmptyArrays: true
-        }},
-        {$lookup: {
-            from: 'taxcodes',
-            localField: 'defaultTaxId',
-            foreignField: '_id',
-            pipeline:[
-                {$project: {
-                    code: 1
-                }}
-            ],
-            as: 'tax'
-        }},
-        {$unwind: {
-            path: '$tax',
-            preserveNullAndEmptyArrays: true
-        }},
-        {$lookup: {
-            from: 'quotations',
-            localField: '_id',
-            foreignField: 'customerId',
-            pipeline:[
-                {$group: {
-                    _id: '$customerId', count: {$sum: 1}, total: {$sum: '$grandTotal'}
-                }}
-            ],
-            as: 'quotation'
-        }},
-        {$unwind: {
-            path: '$quotation',
-            preserveNullAndEmptyArrays: true
-        }}
+        {
+            $sort: {
+                "parents._id": 1
+            },
+        },
+        {
+            $group: {
+                _id: "$_id",
+                parents: {$push: "$parents"},
+                parent: { $first: "$parents" },
+                user: {$first: "$user"},
+                root: { $first: "$$ROOT" }
+            }
+        },
+        {
+            $project: {
+                parents: 1,
+                root: 1,
+                displayName: {
+                    $cond: {
+                        if: {$ifNull: ['$parent.name', false]},
+                        then: {$concat: ['$parent.name', ', ', '$root.name']},
+                        else: '$root.name'
+                    }
+                },
+                user: '$user.name',
+            }
+        },
     ])
     Promise.all([
         tasks,
@@ -215,205 +253,129 @@ exports.deatailCustomer = (req, res) => {
     });
 };
 
-exports.createCustomer = (req, res) => {
-    const customerGroups = CustomerGroup.find();
-    const provinces = Provinces.find();
-    const users = Users.find().select('_id name');
-    const creditTerms = CreditTerms.find();
-    const shipmentTerms = ShipmentTerms.find();
-    const shippings = Shipings.find();
-    const taxs = Taxs.find();
-    Promise.all([
-        customerGroups,
-        provinces,
-        users,
-        creditTerms,
-        shipmentTerms,
-        shippings,
-        taxs
-    ])
-    .then(result => {
-        res.status(200).json({
-            customerGroups: result[0],
-            provinces: result[1],
-            users: result[2],
-            creditTerms: result[3],
-            shipmentTerms: result[4],
-            shippings: result[5],
-            taxs: result[6]
-        });
-    })
-    .catch(err => {
-        res.status(400).send(err);
-    });
-};
-
 exports.editCustomer = (req, res) => {
-    const customerGroups = CustomerGroup.find();
-    const provinces = Provinces.find();
-    const users = Users.find().select('_id name');
-    const creditTerms = CreditTerms.find();
-    const shipmentTerms = ShipmentTerms.find();
-    const shippings = Shipings.find();
-    const taxs = Taxs.find();
-    const customer = Customer.findById(req.params.customerId)
-    Promise.all([
-        customerGroups,
-        provinces,
-        users,
-        creditTerms,
-        shipmentTerms,
-        shippings,
-        taxs,
-        customer,
+    const customerId = mongoose.Types.ObjectId(req.params.customerId)
+    Customers.aggregate([
+        {
+            $match: {_id: customerId}
+        },
+        {
+            $graphLookup: {
+                from: 'customers',
+                startWith: '$_id',
+                connectFromField: '_id',
+                connectToField: 'parentId',
+                as: 'children',
+                maxDepth: 0
+            }
+        },
+        {
+            $graphLookup: {
+                from: 'customers',
+                startWith: '$parentId',
+                connectFromField: 'parentId',
+                connectToField: '_id',
+                as: 'parents',
+            }
+        },
+        {
+            $unwind: {
+                path: '$parents',
+                preserveNullAndEmptyArrays: true
+            },
+        },
+        {
+            $sort: {
+                "parents._id": 1,
+            },
+        },
+        {
+            $group: {
+                _id: "$_id",
+                parents: { $push: "$parents" },
+                root: { $first: "$$ROOT" }
+            }
+        },
+        {
+            $project: {
+                "root.parents": 0
+            }
+        },
+        {
+            $replaceRoot: {
+                newRoot: {
+                    $mergeObjects: [
+                        { parents: "$parents" },
+                        "$root"
+                    ]
+                }
+            }
+        }
     ])
     .then(result => {
-        res.status(200).json({
-            customerGroups: result[0],
-            provinces: result[1],
-            users: result[2],
-            creditTerms: result[3],
-            shipmentTerms: result[4],
-            shippings: result[5],
-            taxs: result[6],
-            customer: result[7]
-        });
-    })
-    .catch(err => {
-        res.status(400).send(err);
-    })
-};
-
-exports.postCustomer = (req, res) => {
-    let code = req.body.code;
-    if(!code) {
-        code = ''
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        const charLengt = chars.length;
-        for( let i = 0; i < 10; i++) {
-            code += chars.charAt(Math.floor(Math.random() * charLengt))
-        }
-    }
-    const customer = new Customer({
-        name: req.body.name,
-        code: code,
-        customerGroupId: req.body.customerGroupId,
-        priceListId: req.body.priceListId,
-        website: req.body.website,
-        taxRegistrationNumber: req.body.taxRegistrationNumber,
-        remarks: req.body.remarks,
-        tags: req.body.tags,
-        access: req.body.access,
-        userAccessLists: req.body.userAccessLists,
-        defaultCreditTermId: req.body.defaultCreditTermId,
-        defaultCreditLimit: req.body.defaultCreditLimit,
-        defaultShipmentTermId: req.body.defaultShipmentTermId,
-        defaultShipmentMethodId: req.body.defaultShipmentMethodId,
-        defaultDiscountType: req.body.defaultDiscountType,
-        defaultTaxId: req.body.defaultTaxId,
-        addressLists: req.body.addressLists,
-        contactLists: req.body.contactLists,
-        userId: req.user._id
-    });
-    customer.save()
-    .then(result => {
-        res.status(200).json(result);
-    })
-    .catch(err => {
-        res.status(400).send(err);
-    });
-};
-
-exports.putCustomer = (req, res) => {
-    let code = req.body.code;
-    if(!code) {
-        code = ''
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-        const charLengt = chars.length;
-        for( let i = 0; i < 10; i++) {
-            code += chars.charAt(Math.floor(Math.random() * charLengt))
-        }
-    }
-    Customer.findById(req.params.customerId)
-    .then(customer => {
-        customer.name = req.body.name;
-        customer.code = code;
-        customer.customerGroupId = req.body.customerGroupId;
-        customer.priceListId = req.body.priceListId;
-        customer.website = req.body.website;
-        customer.taxRegistrationNumber = req.body.taxRegistrationNumber;
-        customer.remarks = req.body.remarks;
-        customer.tags = req.body.tags;
-        customer.access = req.body.access;
-        customer.userAccessLists = req.body.userAccessLists;
-        customer.defaultCreditTermId = req.body.defaultCreditTermId;
-        customer.defaultCreditLimit = req.body.defaultCreditLimit;
-        customer.defaultShipmentTermId = req.body.defaultShipmentTermId;
-        customer.defaultShipmentMethodId = req.body.defaultShipmentMethodId;
-        customer.defaultDiscountType = req.body.defaultDiscountType;
-        customer.defaultTaxId = req.body.defaultTaxId;
-        customer.addressLists = req.body.addressLists;
-        customer.contactLists = req.body.contactLists;
-        return customer.save ();
-    })
-    .then(result => {
-        res.status(200).json({_id: result._id});
-    })
-    .catch(err => {
-        res.status(400).send(err);
-    });
-};
-
-exports.postCustomerGruop = (req, res) => {
-    const customer = new CustomerGroup({
-        name: req.body.name,
-        code: req.body.code,
-        description: req.body.description,
-        userId: req.body.userId
-    })
-    customer.save()
-    .then(result => {
-        res.status(200).json(result);
-    })
-    .catch(err => {
-        res.status(400).send(err);
-    });
-};
-
-exports.putCustomerGroup = (req, res) => {
-    CustomerGroup.findById(req.params.customerGroupId)
-    .then(customer => {
-        customer.name = req.body.name
-        customer.code = req.body.code
-        customer.description = req.body.description
-        return customer.save()
-    })
-    .then(result => {
-        res.status(200).json(result)
+        res.status(200).json(result[0])
     })
     .catch(err => {
         res.status(400).send(err)
     })
 };
 
-exports.deleteCustomerGroup = (req, res) => {
-    CustomerGroup.findByIdAndDelete(req.params.customerGroupId)
-    .then(() => {
-        res.status(200).send('OK');
-    })
-    .catch(err => {
-        res.status(400).send(err);
-    })
-};
-
-exports.putCustomerAddress = (req, res) => {
-    const customerId = req.params.customerId;
-    Customer.findById(customerId)
-    .then(customer => {
-        customer.addressLists = req.body.addressLists;
-        return customer.save();
-    })
+exports.postCustomer = async (req, res) => {
+    let code = req.body.customerCode;
+    let fileName = ''
+    if(!code) {
+        code = ''
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const charLengt = chars.length;
+        for( let i = 0; i < 10; i++) {
+            code += chars.charAt(Math.floor(Math.random() * charLengt))
+        }
+    }
+    if(req.file) {
+        if(req.file) {
+            const {filename: image} = req.file
+            const filePath = `./public/img/customer/${req.file.filename}`
+            await sharp(req.file.path)
+            .resize({height: 150})
+            .toFile(filePath);
+            fs.unlinkSync(req.file.path)
+            fileName = `public/img/customer/${req.file.filename}`;
+        } else {
+            fileName = ''
+        }
+    }
+    const customer = new Customers({
+        name: req.body.name,
+        image: fileName,
+        customerGroup: req.body.customerGroup,
+        customerCode: code,
+        npwp: req.body.npwp,
+        address: JSON.parse(req.body.address),
+        contact: JSON.parse(req.body.contact),
+        tags: JSON.parse(req.body.tags),
+        remarks: req.body.remarks,
+        userId: req.user._id
+    });
+    customer.save()
     .then(result => {
+        let children = JSON.parse(req.body.children)
+        if(children.length > 0) {
+            (async () => {
+                for (let i = 0; i < children.length; i++) {
+                    const el = children[i];
+                    await Customers.create({
+                        name: el.name,
+                        type: el.type,
+                        customerGroup: result.customerGroup,
+                        parentId: result._id,
+                        address: el.address,
+                        contact: el.contact,
+                        remarks: el.remarks,
+                        userId: req.user._id  
+                    })
+                }
+            })()
+        }
         res.status(200).json(result);
     })
     .catch(err => {
@@ -421,17 +383,236 @@ exports.putCustomerAddress = (req, res) => {
     });
 };
 
-exports.putCustomerContact = (req, res) => {
-    const customerId = req.params.customerId;
-    Customer.findById(customerId)
+exports.putCustomer = async (req, res) => {
+    let code = req.body.customerCode;
+    let customerId = mongoose.Types.ObjectId(req.params.customerId)
+    let fileName = ''
+    if(!code) {
+        code = ''
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        const charLengt = chars.length;
+        for( let i = 0; i < 10; i++) {
+            code += chars.charAt(Math.floor(Math.random() * charLengt))
+        }
+    }
+    if(req.file) {
+        if(req.file) {
+            const {filename: image} = req.file
+            const filePath = `./public/img/customer/${req.file.filename}`
+            await sharp(req.file.path)
+            .resize({height: 150})
+            .toFile(filePath);
+            fs.unlinkSync(req.file.path)
+            fileName = `public/img/customer/${req.file.filename}`;
+        } else {
+            fileName = ''
+        }
+    }
+    Customers.findById({_id: customerId })
     .then(customer => {
-        customer.contactLists = req.body.contactLists;
+        customer.name= req.body.name,
+        customer.customerGroup= req.body.customerGroup,
+        customer.customerCode= code,
+        customer.npwp= req.body.npwp,
+        customer.address= JSON.parse(req.body.address),
+        customer.contact= JSON.parse(req.body.contact),
+        customer.tags= JSON.parse(req.body.tags),
+        customer.remarks= req.body.remarks,
+        customer.userId= req.user._id
+        if(fileName) {
+            if(customer.image) {
+                removeImage(customer.image)
+            }
+            customer.image = fileName
+        }
         return customer.save()
     })
     .then(result => {
-        res.status(200).json(result);
+        let children = JSON.parse(req.body.children)
+        if(children.length > 0) {
+            (async () => {
+                for (let i = 0; i < children.length; i++) {
+                    const el = children[i];
+                    if(el._id) {
+                        let filter = {_id: el._id}
+                        let update = {
+                            name: el.name,
+                            type: el.type,
+                            customerGroup: result.customerGroup,
+                            parentId: result._id,
+                            address: el.address,
+                            contact: el.contact,
+                            remarks: el.remarks,
+                        }
+                        await Customers.findOneAndUpdate(filter, update)
+                    } else {
+                        await Customers.create({
+                            name: el.name,
+                            type: el.type,
+                            customerGroup: result.customerGroup,
+                            parentId: result._id,
+                            address: el.address,
+                            contact: el.contact,
+                            remarks: el.remarks,
+                            userId: req.user._id  
+                        })
+                    }
+                }
+            })()
+        }
+        return Customers.aggregate([
+            {$match: {_id: customerId}},
+            {
+                $graphLookup: {
+                    from: 'customers',
+                    startWith: {$toObjectId: '$parentId'},
+                    connectFromField: 'parentId',
+                    connectToField: '_id',
+                    as: 'parents',
+                }
+            },
+            {
+                $unwind: {
+                    path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                },
+            },
+            {
+                $sort: {
+                    "parents._id": 1,
+                },
+            },
+            {
+                $group: {
+                    _id: "$_id",
+                    parents: { $push: "$parents" },
+                    root: { $first: "$$ROOT" }
+                }
+            },
+            {
+                $project: {
+                    "root.parents": 0
+                }
+            },
+            {
+                $replaceRoot: {
+                    newRoot: {
+                        $mergeObjects: [
+                            { parents: "$parents" },
+                            "$root"
+                        ]
+                    }
+                }
+            },
+        ])
+    })
+    .then(result => {
+        let customer = result.map(obj => {
+            if(obj.parents.length > 0) {
+                obj.displayName = obj.parents[0].name+', ' + obj.name 
+            } else {
+                obj.displayName = obj.name
+            }
+            obj.address = obj.address
+            obj.contact = obj.contact
+
+            return obj
+        })
+        res.status(200).json(customer[0])
     })
     .catch(err => {
-        res.status(400).select(err);
+        console.log(err);
+        res.status(400).send(err);
     });
 };
+
+exports.getCustomersAutoSearch = (req, res) => {
+    const search = req.query.search;
+    let arr = search.split(',')
+    let parent = arr[0]
+    let query = {$or: [{name: {$regex: '.*'+search+'.*', $options: 'i'}}, {'parents.name': {$regex: '.*'+parent+'.*', $options: 'i'}}]}
+    if(arr.length > 1) {
+        if(arr[1].length > 1) {
+            query = {$and: [{'parents.name': parent}, {name: {$regex: '.*'+arr[1].trim()+'.*', $options: 'i'}}]}
+        }
+    }
+    Customers.aggregate([
+        {
+            $graphLookup: {
+                from: 'customers',
+                startWith: {$toObjectId: '$parentId'},
+                connectFromField: 'parentId',
+                connectToField: '_id',
+                as: 'parents',
+            }
+        },
+        {
+            $match: query
+        },
+
+        {
+            $limit: 5
+        },
+        {
+            $unwind: {
+                path: '$parents',
+                preserveNullAndEmptyArrays: true
+            },
+        },
+        {
+            $sort: {
+                "parents._id": 1,
+            },
+        },
+        {
+            $group: {
+                _id: "$_id",
+                parents: { $push: "$parents" },
+                root: { $first: "$$ROOT" }
+            }
+        },
+        {
+            $project: {
+                "root.parents": 0
+            }
+        },
+        {
+            $replaceRoot: {
+                newRoot: {
+                    $mergeObjects: [
+                        { parents: "$parents" },
+                        "$root"
+                    ]
+                }
+            }
+        },
+    ])
+    .then(result => {
+        let customer = result.map(obj => {
+            if(obj.parents.length > 0) {
+                obj.displayName = obj.parents[0].name+', ' + obj.name 
+            } else {
+                obj.displayName = obj.name
+            }
+            obj.address = obj.address
+            obj.contact = obj.contact
+
+            return obj
+        })
+        let customers = customer.sort(function (a, b) {
+            let x = a.createdAt
+            let y = b.createdAt
+            if(x > y) {return 1}
+            if(x < y) {return -1}
+            return 0
+        })
+        res.status(200).json(customers)
+    })
+}
+
+const removeImage = (filePath) => {
+    filePath = path.join(__dirname, '../..', filePath);
+    fs.unlink(filePath, err => {
+       if(err) return;
+    })
+}

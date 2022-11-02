@@ -19,21 +19,26 @@ const companyRouters = require('./src/routers/company');
 const shippingRoutes = require('./src/routers/shipping');
 const bankRoutes = require('./src/routers/banks');
 const generalRoutes = require('./src/routers/general');
-const customerRoutes = require('./src/routers/customer')
+const customerRoutes = require('./src/routers/customer');
+const deliveryRoutes = require('./src/routers/delivery');
 const supplierRoutes = require('./src/routers/supplier');
 const productRoutes = require('./src/routers/product');
 const brandRoutes = require('./src/routers/brand');
 const categoryRoutes = require('./src/routers/categories');
+const posRoutes = require('./src/routers/pos')
 const quotationRoutes = require('./src/routers/quotations');
 const salesRoutes = require('./src/routers/sales');
 const purchaseRoutes = require('./src/routers/purchases');
 const indonesiaRouters = require('./src/routers/indonesia');
 const adjustmentRouters = require('./src/routers/adjustment');
 const transferRouters = require('./src/routers/transfer');
+const invoiceRouters = require('./src/routers/invoice');
+const paymentRouters = require('./src/routers/payment');
 const taskRoutes = require('./src/routers/tasks');
 const notificationRoutes = require('./src/routers/notifications');
 const activityRoutes = require('./src/routers/acitvities');
 
+const tokopediaRoutes = require('./src/routers/tokopedia');
 
 app.use('/auth', userRoutes);
 app.use('/dashboard', authenticateToken, dashboardRoutes);
@@ -42,20 +47,25 @@ app.use('/setting', authenticateToken, shippingRoutes);
 app.use('/setting', authenticateToken, bankRoutes);
 app.use('/setting', authenticateToken, generalRoutes);
 app.use('/customers', authenticateToken, customerRoutes);
+app.use('/delivery', authenticateToken, deliveryRoutes);
 app.use('/suppliers', authenticateToken, supplierRoutes);
 app.use('/products', authenticateToken, productRoutes);
 app.use('/brands', authenticateToken, brandRoutes);
 app.use('/categories', authenticateToken, categoryRoutes );
+app.use('/pos', authenticateToken, posRoutes);
 app.use('/quotations', authenticateToken, quotationRoutes);
 app.use('/sales', authenticateToken, salesRoutes);
 app.use('/purchases', authenticateToken, purchaseRoutes);
 app.use('/indonesia', authenticateToken, indonesiaRouters);
 app.use('/adjustments', authenticateToken, adjustmentRouters);
 app.use('/transfers', authenticateToken, transferRouters);
-
+app.use('/invoices', authenticateToken, invoiceRouters);
+app.use('/payments', authenticateToken, paymentRouters);
 app.use('/tasks', authenticateToken, taskRoutes);
 app.use('/notifications', authenticateToken, notificationRoutes);
 app.use('/activities', authenticateToken, activityRoutes);
+
+app.use('/tokopedia', authenticateToken, tokopediaRoutes);
 
 const PORT = process.env.PORT || 3000;
 

@@ -95,6 +95,17 @@ exports.postService = (req, res) => {
     });
 }
 
+exports.shippingMethod = async (req, res) => {
+    const result = await Shipping.find({status: true})
+    .sort({name: 1})
+    .lean()
+    let data = result.map(obj => {
+        obj.id = obj._id ,
+        obj.text = obj.name
+        return obj
+    })
+    res.status(200).json(data)
+}
 // remove image
 const removeImage = (filePath) => {
     filePath = path.join(__dirname, '../..', filePath);

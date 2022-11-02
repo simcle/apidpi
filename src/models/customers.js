@@ -3,23 +3,31 @@ const Schema = mongoose.Schema;
 
 const CustomerSchema = new Schema({
     name: {type: String, required: true},
-    code: {type: String},
-    customerGroupId: {type: Schema.Types.ObjectId, ref:'CustomerGroup', default: null},
-    priceListId: {type: Schema.Types.ObjectId},
-    website: {type: String},
-    taxRegistrationNumber: {type: String},
-    remarks: {type: String},
+    customerGroup: {type: String},
+    customerCode: {type: String, default: null},
+    parentId: {type: Schema.Types.ObjectId, default: null},
+    npwp: {type: String, default: null},
+    type: {type: String, default: 'contact'},
+    image: {type: String, default: null},
+    address: {
+        street: {type: String},
+        street2: {type: String},
+        subdistrictId: {type: Number},
+        subdistrictName: {type: String},
+        cityId: {type: Number},
+        cityName: {type: String},
+        provinceId: {type: Number},
+        provinceName: {type: String},
+        zip: {type: String},
+    },
+    contact: {
+        phone: {type: String},
+        mobile: {type: String},
+        email: {type: String},
+        website: {type: String}
+    },
     tags: {type: Array},
-    access: {type: String},
-    userAccessLists: {type: Array},
-    defaultCreditTermId: {type: Schema.Types.ObjectId},
-    defaultCreditLimit: {type: Number},
-    defaultShipmentTermId: {type: Schema.Types.ObjectId},
-    defaultShipmentMethodId: {type: Schema.Types.ObjectId},
-    defaultDiscountType: {type: String},
-    defaultTaxId: {type: Schema.Types.ObjectId},
-    addressLists: {type: Array},
-    contactLists: {type: Array},
+    remarks: {type: String},
     userId: {type: Schema.Types.ObjectId, ref: 'User'}
 },{
     timestamps: true

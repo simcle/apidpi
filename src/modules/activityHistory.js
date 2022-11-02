@@ -32,7 +32,49 @@ module.exports = (event, document, parentId, documentId, documentName, userId, o
                 userId: userId
             })
             update.save()
-            break
+            break;
+        case 'cancelled': 
+            const cancelled = new Activity({
+                event: event,
+                action: 'Cancelled',
+                document: document,
+                documentId: documentId,
+                parentId: parentId,
+                documentName: documentName,
+                original: original,
+                updated: updated,
+                userId: userId
+            })
+            cancelled.save()
+            break;
+        case 'settoquotation': 
+            const settoquotation = new Activity({
+                event: event,
+                action: 'Set to quotation',
+                document: document,
+                documentId: documentId,
+                parentId: parentId,
+                documentName: documentName,
+                original: original,
+                updated: updated,
+                userId: userId
+            })
+            settoquotation.save()
+            break;
+        case 'confirm': 
+            const confirm = new Activity({
+                event: event,
+                action: 'Sales Order',
+                document: document,
+                documentId: documentId,
+                parentId: parentId,
+                documentName: documentName,
+                original: original,
+                updated: updated,
+                userId: userId
+            })
+            confirm.save()
+            break;
     }
     User.find()
     .then(async (result) => {

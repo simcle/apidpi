@@ -48,7 +48,7 @@ exports.getProductFilter = async (req, res) => {
     const currentPage = req.query.page || 1;
     const perPage = req.query.perPage || 20;
     const status = req.query.status;
-    const brands = req.query.brands || {$exists: true};
+    const brands = req.query.brands;
     const categories = req.query.categories;
     const sortKey = req.query.sortKey;
     const sortOrder = req.query.sortOrder;
@@ -137,7 +137,7 @@ exports.createProduct = (req, res) => {
     const brands = Brands.find();
     const categories = Categories.find();
     const currencies = Currencies.find({'status': true}).select('code symbolNative').sort({code: 'asc'});
-    const warehouses = Warehouses.find({status: true}).populate('sections').sort({name: 'asc'});
+    const warehouses = Warehouses.find({$and:[{isDefault: true},{status: true}]}).populate('sections').sort({name: 'asc'});
     Promise.all([
         brands,
         categories,
@@ -163,7 +163,7 @@ exports.editProduct = (req, res) => {
     const categories = Categories.find();
     const currencies = Currencies.find({'status': true}).select('code symbolNative').sort({code: 'asc'});
     const product = Products.findById(productId).populate('accessories', '_id sku name images')
-    const warehouses = Warehouses.find({status: true}).populate('sections').sort({name: 'asc'})
+    const warehouses = Warehouses.find({$and:[{isDefault: true},{status: true}]}).populate('sections').sort({name: 'asc'})
     const inventory = Inventory.find({productId: productId, isDefault: true}) 
     Promise.all([
         brands,
@@ -284,7 +284,8 @@ exports.postProduct = (req, res) => {
                 notes: JSON.parse(req.body.notes),
                 accessories: JSON.parse(req.body.accessories),
                 preorder: JSON.parse(req.body.preorder),
-                stock: req.body.qtyStock
+                stock: req.body.qtyStock,
+                status: true
             })
             products.save ()
             .then((result) => {
@@ -317,61 +318,27 @@ exports.postProduct = (req, res) => {
     })
 };
 
-exports.putProduct = (req, res) => {
+exports.putProduct = async (req, res) => {
     const images = req.files.images;
     const imagesList = [];
     const attachments = req.files.files
     const attachmentLists = []
-
-    Inventory.find({productId: req.params.productId})
-    .then(inventory => {
-        if(inventory.length == 1) {
-            const inv = inventory.find(obj => obj.sectionId == req.body.sectionId)
-            if(!inv) {
-                Inventory.findById(req.body.inventoryId)
-                .then(result => {
-                    result.isDefault = false
-                    result.save();
-                });
-                const newInventory = new Inventory({
-                    warehouseId: req.body.warehouseId,
-                    sectionId: req.body.sectionId,
-                    productId: req.params.productId,
-                    isDefault: true,
-                    qty: 0
-                });
-                newInventory.save();
-            }
-        } else {
-            const inv = inventory.find(obj => obj.sectionId == req.body.sectionId)
-            if(inv) {
-                if(inv.isDefault == false) {
-                    Inventory.findById(req.body.inventoryId)
-                    .then(result => {
-                        result.isDefault = false
-                        result.save();
-                    });
-                    Inventory.findById(inv._id)
-                    .then(result => {
-                        result.isDefault = true
-                        result.save();
-                    });
-                } 
-            } else {
-                Inventory.findById(req.body.inventoryId)
-                .then(result => {
-                    result.isDefault = false
-                    result.save();
-                })
-                const newInventory = new Inventory({
-                    warehouseId: req.body.warehouseId,
-                    sectionId: req.body.sectionId,
-                    productId: req.params.productId,
-                    isDefault: true,
-                    qty: 0
-                });
-                newInventory.save();
-            }
+   
+    Inventory.findOne({$and:[{productId: req.params.productId}, {warehouseId: req.body.warehouseId}]})
+    .then(inv => {
+        if(!inv) {
+            const inventory = new Inventory({
+                warehouseId: req.body.warehouseId,
+                sectionId: req.body.sectionId,
+                productId: req.params.productId,
+                isDefault: true,
+                qty: 0
+            })
+            inventory.save()
+        }
+        else {
+            inv.sectionId = req.body.sectionId
+            inv.save()
         }
     })
     Products.findById(req.params.productId)
@@ -473,4 +440,65 @@ exports.getStock = (req, res) => {
         res.status(400).send(err);
     });
 };
+
+// for AtueSearch Component
+exports.getProductAutoSearc = async (req, res) => {
+    const search = req.query.search;
+    const params = req.query.notin
+    let ids = [];
+    for await (let pr of params) {
+        if(pr) {
+            ids.push(mongoose.Types.ObjectId(pr))
+        }
+    }
+    let query = {}
+    if(!search) {
+        query = {_id: {$nin: ids}}
+    } else {
+        query = {$and: [{status: true}, {$or: [{name: {$regex: '.*'+search+'.*', $options: 'i'}}, {sku: search}], _id: {$nin: ids}}]}
+    }
+    Products.find(query)
+    .limit(7)
+    .then(result => {
+        res.status(200).json(result);
+    })
+    .catch(err => {
+        res.status(400).send(err);
+    });
+}
+
+// for Modal Product Searc 
+exports.productSearch = (req, res) => {
+    const search = req.query.search
+    const currentPage = req.query.page || 1;
+    const perPage = req.query.perPage || 20;
+    let totalItems;
+    Products.find({$and: [{$or: [{name: {$regex: '.*'+search+'.*', $options: 'i'}}, {sku: search}]}, {status: true}]})
+    .countDocuments()
+    .then(count => {
+        totalItems = count
+        return Products.find({$and: [{$or: [{name: {$regex: '.*'+search+'.*', $options: 'i'}}, {sku: search}]}, {status: true}]})
+        .skip((currentPage -1) * perPage)
+        .limit(perPage)
+    })
+    .then(result => {
+        const last_page = Math.ceil(totalItems / perPage)
+        const pageValue = currentPage * perPage - perPage + 1
+        const pageLimit = pageValue + result.length -1
+        res.status(200).json({
+            data: result,
+            pages: {
+                current_page: currentPage,
+                last_page: last_page,
+                pageValue: pageValue+'-'+pageLimit,
+                totalItems: totalItems 
+            },
+        })
+    })
+    .catch(err => {
+        console.log(err);
+        res.status(400).send(err)
+    })
+}
+
 

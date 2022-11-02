@@ -59,5 +59,7 @@ router.get('/warehouse', productController.getWarehouse);
 router.get('/stock/:productId', productController.getStock);
 router.get('/inventory/:productId', productController.getInventory);
 router.get('/info/:productId', productController.getProductInfo);
-
+// New
+router.get('/search', productController.productSearch);
+router.get('/auto-search', productController.getProductAutoSearc);
 module.exports = router;
