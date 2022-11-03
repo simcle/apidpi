@@ -35,7 +35,6 @@ async function dwonloadImage (url, fileName) {
 exports.exportProduct = async (req, res) => {
     let token = await authenticate()
     let page = 1
-    let productCount = 0
     async function getData (p) {
         let name, condition, description, sku, sellingPrice, measurements = {
             width: {value: '', unit: 'mm'},
@@ -54,6 +53,7 @@ exports.exportProduct = async (req, res) => {
                     'Authorization': `Bearer ${token}`
                 }
             })
+            let productCount = 0
             for await (let data of result.data.data) {
                 let productId = await Products.findOne({tokopediaId: data.basic.productID})
                 let warehouse = await Warehouses.findOne({isDefault: true})
@@ -119,10 +119,10 @@ exports.exportProduct = async (req, res) => {
                     console.log(productCount)
                 }
             }
+            console.log('page', page)
             // IF PER PAGE > 50
             if(result.data.data.length == 50) {
                 page+=1
-                console.log(page)
                 getData(page)
             } else {
                 res.status(200).json('OK')
