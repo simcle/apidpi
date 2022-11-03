@@ -54,7 +54,7 @@ exports.exportProduct = async (req, res) => {
                     'Authorization': `Bearer ${token}`
                 }
             })
-            for(let data of result.data.data) {
+            for await (let data of result.data.data) {
                 let productId = await Products.findOne({tokopediaId: data.basic.productID})
                 let warehouse = await Warehouses.findOne({isDefault: true})
                 if(!productId) {
@@ -89,7 +89,7 @@ exports.exportProduct = async (req, res) => {
                     tokopediaUrl = data.other.url
     
                     let images = []
-                    for(img of data.pictures) {
+                    for await (img of data.pictures) {
                         const fileName = new Date().getTime().toString()+'.png'
                         images.push(fileName)
                         await dwonloadImage(img.OriginalURL, fileName)
@@ -116,17 +116,13 @@ exports.exportProduct = async (req, res) => {
                     })
                     await inventory.save()
                     productCount+=1
-                    pusher.trigger('tokopedia', 'products', {
-                        message: productCount
-                    })
+                    console.log(productCount)
                 }
             }
             // IF PER PAGE > 50
             if(result.data.data.length == 50) {
                 page+=1
-                pusher.trigger('tokopedia', 'pages', {
-                    message: page
-                })
+                console.log(page)
                 getData(page)
             } else {
                 res.status(200).json('OK')
@@ -137,5 +133,6 @@ exports.exportProduct = async (req, res) => {
         }   
     }
     getData(1)
+    res.status(200).json('OK')
 }
 
