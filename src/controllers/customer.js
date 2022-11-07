@@ -11,6 +11,7 @@ const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
 
+
 exports.getCustomers = (req, res) => {
     const currentPage = req.query.page || 1;
     const perPage = req.query.perPage || 20;
@@ -36,7 +37,7 @@ exports.getCustomers = (req, res) => {
         {
             $group: {
                 _id: "$_id",
-                parents: { $first: "$parents" },
+                parent: { $first: "$parents" },
                 root: { $first: "$$ROOT" }
             }
         },
@@ -46,8 +47,8 @@ exports.getCustomers = (req, res) => {
                 name: '$root.name',
                 displayName: {
                     $cond: {
-                        if: {$ifNull: ['$parents.name', false]},
-                        then: {$concat: ['$parents.name', ', ', '$root.name']},
+                        if: {$ifNull: ['$parent.name', false]},
+                        then: {$concat: ['$parent.name', ', ', '$root.name']},
                         else: '$root.name'
                     }
                 }
@@ -106,21 +107,23 @@ exports.getCustomers = (req, res) => {
             {
                 $group: {
                     _id: "$_id",
-                    parents: { $first: "$parents" },
+                    parents: {$push: "$parents"},
+                    parent: { $first: "$parents" },
                     user: {$first: "$user"},
                     root: { $first: "$$ROOT" }
                 }
             },
             {
                 $project: {
-                    parent: '$parents.name',
+                    parents: '$parents',
+                    group: '$root.customerGroup',
                     name: '$root.name',
                     address: '$root.address',
                     contact: '$root.contact',
                     displayName: {
                         $cond: {
-                            if: {$ifNull: ['$parents.name', false]},
-                            then: {$concat: ['$parents.name', ', ', '$root.name']},
+                            if: {$ifNull: ['$parent.name', false]},
+                            then: {$concat: ['$parent.name', ', ', '$root.name']},
                             else: '$root.name'
                         }
                     },

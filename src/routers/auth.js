@@ -20,6 +20,12 @@ const authenticateToken = require('../../authenticate');
 
 const authController = require('../controllers/auth');
 
+// get all user
+router.get('/', authenticateToken, authController.getUsers);
+
+// for get user
+router.get('/me', authenticateToken, authController.getMe);
+
 // for register or create new user
 router.post('/register',[
     body('name').notEmpty(),

@@ -8,6 +8,26 @@ const fs = require('fs');
 const User = require('../models/users');
 const tokenExpired = '1d'
 
+// get All User
+exports.getUsers = (req, res) => {
+    User.find().select('name email role createdAt')
+    .then(result => {
+        res.status(200).json(result)
+    })
+    .catch(err => {
+        res.status(400).send(err)
+    })
+}
+
+// get user 
+exports.getMe = (req, res) => {
+    const userId = req.user._id
+    User.findById(userId).select('name email role')
+    .then(result => {
+        res.status(200).json(result)
+    })
+}
+
 // register
 exports.UserRegister = async (req, res) => {
     const errors = validationResult(req);
@@ -18,12 +38,14 @@ exports.UserRegister = async (req, res) => {
     const name = req.body.name;
     const email = req.body.email;
     const password = req.body.password;
+    const role = req.body.role
     
     const hashPassword = await bcrypt.hash(password, 10);
     const register = new User({
         name: name,
         email: email,
-        password: hashPassword
+        password: hashPassword,
+        role: role
     })
     register.save()
     .then(() => {
@@ -99,6 +121,7 @@ exports.UserUpdate = (req, res) => {
         } else {
             user.name = req.body.name;
             user.email = req.body.email;
+            user.role = req.body.role
         }
         return user.save();
     })

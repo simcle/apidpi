@@ -370,7 +370,7 @@ exports.updateSales = async (req, res) => {
         return sales.save()
     })
     .then(async (result) => {
-        activity('update','Sales Order', result.customerId, result._id, result.salesNo, req.user._id, original, result)
+        activity('update','Sales Orders', result.customerId, result._id, result.salesNo, req.user._id, original, result)
         const items = result.items
         items.map(obj => {
             if(obj.delivered > 0) {

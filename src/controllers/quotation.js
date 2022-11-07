@@ -412,7 +412,7 @@ exports.postQuotation = (req, res) => {
         return quotation.save()
     })
     .then(result => {
-        activity('insert','Quotation', result.customerId, result._id, result.quotationNo, req.user._id, result, result)
+        activity('insert','Quotations', result.customerId, result._id, result.quotationNo, req.user._id, result, result)
         res.status(200).json(result)
     })
     .catch(err => {
@@ -665,7 +665,7 @@ exports.duplicateQuotation = async (req, res) => {
         return quotation.save()
     })
     .then(result => {
-        activity('insert','Quotation', result.customerId, result._id, result.no, req.user._id, result, result)
+        activity('insert','Quotations', result.customerId, result._id, result.no, req.user._id, result, result)
         res.status(200).json(result)
     })
     .catch(err => {
@@ -699,7 +699,7 @@ exports.putQuotation = async (req, res) => {
         return quotation.save()
     })
     .then(result => {
-        activity('update','Quotation', result.customerId, result._id, result.quotationNo, req.user._id, original, result)
+        activity('update','Quotations', result.customerId, result._id, result.quotationNo, req.user._id, original, result)
         res.status(200).json(result)
     })
     .catch(err => {
@@ -724,7 +724,7 @@ exports.cancelQuotation = async (req, res) => {
     })
     .then( async (result) => {
         await Deliveries.updateMany({salesId: quotationId}, {status: 'Cancelled'})
-        activity('cancelled','Quotation', result.customerId, result._id, result.quotationNo, req.user._id, original, result)
+        activity('cancelled','Quotations', result.customerId, result._id, result.quotationNo, req.user._id, original, result)
         res.status(200).json(result)
     })
     .catch(err => {
@@ -741,7 +741,7 @@ exports.setToQuotation = (req, res) => {
         return quotation.save()
     })
     .then(result => {
-        activity('settoquotation','Quotation', result.customerId, result._id, result.quotationNo, req.user._id, original, result)
+        activity('settoquotation','Quotations', result.customerId, result._id, result.quotationNo, req.user._id, original, result)
         res.status(200).json(result)
     })
     .catch(err => {
@@ -791,7 +791,7 @@ exports.confirmQuotation = async (req, res) => {
     })
     .then(async (result) => {
         await moduleDelivery(result, req.user._id)
-        activity('confirm','Quotation', result.customerId, result._id, result.quotationNo, req.user._id, original, result)
+        activity('confirm','Quotations', result.customerId, result._id, result.quotationNo, req.user._id, original, result)
         res.status(200).json(result)
     })
     .catch(err => {

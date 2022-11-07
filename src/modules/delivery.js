@@ -41,5 +41,5 @@ module.exports = async (sales, userId) => {
         userId: userId
     })
     let result = await delivery.save()
-    activity('insert','Delivery Order', result.salesId, result._id, result.deliveryNo, userId, result, result)
+    activity('insert','Delivery Orders', result.salesId, result._id, result.deliveryNo, userId, result, result)
 }

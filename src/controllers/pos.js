@@ -5,6 +5,146 @@ const Invoices = require('../models/invoice');
 const Payments = require('../models/payment');
 const Inventories = require('../models/inventory');
 const updateStock = require('../modules/updateStock');
+const stockCards = require('../modules/stockCard');
+const SerialNumbers = require('../models/serialNumbers');
+
+exports.getPos = (req, res) => {
+    const search = req.query.search
+    const filters = req.query.filters
+    const currentPage = req.query.page || 1
+    const perPage = req.query.perPage || 20
+    let totalItems;
+    let query;
+    if(filters) {
+        query = {status: {$in: filters}}
+    } else {
+        query = {}
+    }
+    Pointofsales.aggregate([
+        {$lookup: {
+            from: 'customers',
+            localField: 'customerId',
+            foreignField: '_id',
+            pipeline: [
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$parentId',
+                    connectFromField: 'parentId',
+                    connectToField: '_id',
+                    as: 'parents'
+                }},
+                {$unwind: {
+                    path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                }},
+                {$sort: {'parents._id': 1}},
+                {
+                    $group: {
+                        _id: "$_id",
+                        parents: { $first: "$parents" },
+                        root: { $first: "$$ROOT" }
+                    }
+                },
+                {
+                    $project: {
+                        parent: '$parents.name',
+                        name: '$root.name',
+                        address: '$root.address',
+                        displayName: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: {$concat: ['$parents.name', ', ', '$root.name']},
+                                else: '$root.name'
+                            }
+                        }
+                    }
+                },
+            ],
+            as: 'customer'
+        }},
+        {$unwind: '$customer'},
+        {$addFields: {
+            'customer': '$customer.displayName'
+        }},
+        {$match: {$and: [{$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {posNo: {$regex: '.*'+search+'.*', $options: 'i'}}]}, query]}},
+        {$count: 'count'}
+    ])
+    .then(count => {
+        if(count.length > 0) {
+            totalItems = count[0].count
+        } else {
+            totalItems = 0
+        }
+        return Pointofsales.aggregate([
+            {$lookup: {
+                from: 'customers',
+                localField: 'customerId',
+                foreignField: '_id',
+                pipeline: [
+                    {$graphLookup: {
+                        from: 'customers',
+                        startWith: '$parentId',
+                        connectFromField: 'parentId',
+                        connectToField: '_id',
+                        as: 'parents'
+                    }},
+                    {$unwind: {
+                        path: '$parents',
+                        preserveNullAndEmptyArrays: true
+                    }},
+                    {$sort: {'parents._id': 1}},
+                    {
+                        $group: {
+                            _id: "$_id",
+                            parents: { $first: "$parents" },
+                            root: { $first: "$$ROOT" }
+                        }
+                    },
+                    {
+                        $project: {
+                            parent: '$parents.name',
+                            name: '$root.name',
+                            address: '$root.address',
+                            displayName: {
+                                $cond: {
+                                    if: {$ifNull: ['$parents.name', false]},
+                                    then: {$concat: ['$parents.name', ', ', '$root.name']},
+                                    else: '$root.name'
+                                }
+                            }
+                        }
+                    },
+                ],
+                as: 'customer'
+            }},
+            {$unwind: '$customer'},
+            {$addFields: {
+                'customer': '$customer.displayName'
+            }},
+            {$match: {$and: [{$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {posNo: {$regex: '.*'+search+'.*', $options: 'i'}}]}, query]}},
+            {$sort: {createdAt: -1}},
+            {$skip: (currentPage -1) * perPage},
+            {$limit: perPage}
+        ])
+    })
+    .then (result => {
+        const last_page = Math.ceil(totalItems / perPage)
+        const pageValue = currentPage * perPage - perPage + 1
+        const pageLimit = pageValue + result.length -1
+        res.status(200).json({
+            data: result,
+            pages: {
+                current_page: currentPage,
+                last_page: last_page,
+                pageValue: pageValue+'-'+pageLimit,
+                totalItems: totalItems 
+            },
+        })
+    })
+    .catch(err => {
+        res.status(400).send(err)
+    })
+},
 
 exports.createPos = (req, res) => {
     const TaxCodes = TaxCode.find().sort({code: 1})
@@ -57,6 +197,7 @@ exports.insertPos = async (req, res) => {
     } else {
         invoiceNo = `${dd}${mm}/DPI/INV/${yy}/1`
     }
+    let documentId;
     const pointOfSales = new Pointofsales({
         customerId: req.body.customerId,
         posNo: posNo,
@@ -72,6 +213,7 @@ exports.insertPos = async (req, res) => {
     })
     pointOfSales.save()
     .then(result => {
+        documentId = result._id
         const invoice = new Invoices({
             invoiceNo: invoiceNo,
             salesId: result._id,
@@ -105,21 +247,39 @@ exports.insertPos = async (req, res) => {
         })
         return payment.save()
     })
-    .then(async () => {
+    .then(async (result) => {
         const items = req.body.items
         for (let i=0; i < items.length; i++ ) {
             let item = items[i]
+            if(item.isSerialNumber) {
+                for (let s=0; s < item.serialNumber.length; s++) {
+                    let sn = item.serialNumber[s]
+                    let serial = await SerialNumbers.findOne({serialNumber: sn.sn})
+                    if(serial) {
+                        serial.documentOut.push(documentId)
+                        await serial.save()
+                    } else {
+                        const newSerial = new SerialNumbers({
+                            productId: item.productId,
+                            serialNumber: sn.sn,
+                            documentOut: [documentId]
+                        })
+                        await newSerial.save()
+                    }
+                }
+            }
             let inventory = await Inventories.findOne({$and: [{isDefault: true}, {productId: item.productId}]})
             if(inventory) {
                 let qty = inventory.qty - item.qty
                 inventory.qty = qty
                 await inventory.save()
+                await stockCards('out', inventory.warehouseId, item.productId, documentId, 'Point Of Sales', item.qty, qty)
                 await updateStock(inventory.productId)
             }
         }
-        res.status(200).json('OK')
+        res.status(200).json(result)
     })
     .catch(err => {
-        res.status(400).send(err)
+        res.status(400).send(err);
     })
 }

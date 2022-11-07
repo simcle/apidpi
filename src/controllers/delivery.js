@@ -375,7 +375,6 @@ exports.updateDelivery = (req, res) => {
     const deliveryId = req.params.deliveryId
     Delivery.findById(deliveryId)
     .then(delivery => {
-        console.log(delivery);
         delivery.scheduled = req.body.scheduled
         delivery.items = req.body.items
         if(req.body.shipping.shipmentMethodId) {
@@ -433,7 +432,10 @@ exports.validateDelivery = (req, res) => {
                 await updateStock(inventory.productId)
             }
         }
-        res.status(200).json('OK')
+        res.status(200).json(sales)
+    })
+    .catch(err => {
+        res.status(400).send(err)
     })
 }
 
