@@ -81,6 +81,7 @@ exports.UserLogin = (req, res) => {
                         id: result._id,
                         name: result.name,
                         email: result.email,
+                        role: result.role,
                         avatar: result.avatar,
                     }
                     result.refreshToken = refreshToken
