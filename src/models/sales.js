@@ -18,7 +18,7 @@ const SalesSchmea = new Schema({
         shipmentService: {type: String},
         shipmentCost: {type: Number},
         bookingCode: {type: String},
-        tasckingNumber: {type: String}
+        trackingNumber: {type: String}
     },
     shipmentStatus: {type: String},
     paymentStatus: {type: String},

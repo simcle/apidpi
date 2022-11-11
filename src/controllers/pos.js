@@ -254,7 +254,7 @@ exports.insertPos = async (req, res) => {
             if(item.isSerialNumber) {
                 for (let s=0; s < item.serialNumber.length; s++) {
                     let sn = item.serialNumber[s]
-                    let serial = await SerialNumbers.findOne({serialNumber: sn.sn})
+                    let serial = await SerialNumbers.findOne({$and: [{serialNumber: sn.sn}, {productId: item.productId}]})
                     if(serial) {
                         serial.documentOut.push(documentId)
                         await serial.save()

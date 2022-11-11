@@ -3,36 +3,48 @@ const Schema = mongoose.Schema;
 
 const PurchaseSchema = new Schema({
     no: {type: String},
+    confirmDate: {type: Date},
     supplierId: {type: Schema.Types.ObjectId, ref: 'Supplier', required: true},
     address: {type: Object},
     referenceNumber: {type: String},
     remarks: {type: String},
     tags: {type: Array},
-    dateOrdered: {type: Date},
     estimatedReceiveDate: {type: Date},
+    dateValidaty: {type: Date},
     paymentTermId: {type: Schema.Types.ObjectId, ref: 'PaymentTerm'},
-    shipmentTermId: {type: Schema.Types.ObjectId, ref: 'ShipmentTerm'},
-    shipmentMethodId: {type: Schema.Types.ObjectId, ref: 'Shipping'},
     currencyId: {type: Schema.Types.ObjectId, ref: 'Currency'},
     exchangeRate: {type: Number},
     additionalCharges: {type: Array},
+    shipping: {
+        shipmentMethodId: {type: Schema.Types.ObjectId, ref: 'Shippings'},
+        shipmentService: {type: String},
+        shipmentCost: {type: Number},
+        bookingCode: {type: String},
+        trackingNumber: {type: String}
+    },
     items: [
         {
             idx: {type: String},
             productId: {type: Schema.Types.ObjectId, ref: 'Product'},
-            purchasePrice: {type: Number},
+            isSerialNumber: {type: Boolean},
+            serialNumber: {type: Array},
             unitPrice: {type: Number},
+            stock: {type: Number},
             qty: {type: Number},
+            received: {type: Number, default: 0},
+            billed: {type: Number, default: 0},
             total: {type: Number},
             discount: {
                 discountType: {type: String},
                 amount: {type: String},
                 value: {type: Number},
             },
-            subTotal: {type: Number}
+            subTotal: {type: Number},
+            hover: {type: Boolean, default: false},
+            edited: {type: Boolean, default: false},
+            status: {type: Boolean, default: false},
         }
     ],
-    totalQty: {type: Number},
     total: {type: Number},
     totalAdditionalCharges: {type: Number},
     discount: {
@@ -48,7 +60,7 @@ const PurchaseSchema = new Schema({
     grandTotal: {type: Number},
     status: {type: String},
     receiveStatus: {type: String},
-    paymentStatus: {type: String},
+    billingStatus: {type: String},
     userId: {type: Schema.Types.ObjectId, ref: 'User'}
 }, {
     timestamps: true

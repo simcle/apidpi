@@ -3,6 +3,7 @@ const Inventories = require('../models/inventory');
 const StockOpnames = require('../models/stockOpname');
 const updateStock = require('../modules/updateStock');
 const stockCard = require('../modules/stockCard');
+const Products = require('../models/products');
 
 const mongoose = require('mongoose');
 
@@ -441,7 +442,12 @@ exports.validateStockOpname = (req, res) => {
             let inventory = await Inventories.findOne({$and: [{warehouseId: warehouseId}, {productId: item.productId}]})
             inventory.qty += item.difference
             await inventory.save()
-            if(items.difference < 0) {
+            if(item.isSerialNumber) {
+                let product = await Products.findById(item.productId)
+                product.isSerialNumber = item.isSerialNumber
+                await product.save()
+            }
+            if(item.difference < 0) {
                 await stockCard('out', warehouseId, item.productId, result._id, 'Stock Opname', item.difference, inventory.qty)
             } else {
                 await stockCard('in', warehouseId, item.productId, result._id, 'Stock Opname', item.difference, inventory.qty)
