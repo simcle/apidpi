@@ -242,10 +242,9 @@ exports.validateReceive = (req, res) => {
     })
     .then(async (purchase) => {
         const warehouseId = received.warehouseId
-        const documentId = received._id
+        const documentId = purchase._id
         for (let i=0; i < items.length; i++ ) {
             let item = items[i]
-            let inventory = await Inventories.findOne({$and: [{warehouseId: warehouseId}, {isDefault: true}, {productId: items[i].productId}]})
             if(item.isSerialNumber) {
                 for (let s=0; s < item.serialNumber.length; s++) {
                     let sn = item.serialNumber[s]
@@ -263,6 +262,7 @@ exports.validateReceive = (req, res) => {
                     }
                 }
             }
+            let inventory = await Inventories.findOne({$and: [{warehouseId: warehouseId}, {isDefault: true}, {productId: items[i].productId}]})
             if(inventory) {
                 let qty = inventory.qty + item.done
                 inventory.qty = qty

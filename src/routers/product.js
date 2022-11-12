@@ -63,5 +63,8 @@ router.get('/info/:productId', productController.getProductInfo);
 router.get('/search', productController.productSearch);
 router.get('/auto-search', productController.getProductAutoSearc);
 router.delete('/delete/:productId', productController.deleteProduct);
+router.get('/overview/:productId', productController.overviewProduct);
+router.get('/warehouses', productController.productWarehouses);
+router.get('/inventories/:productId', productController.productInvenotries);
 
 module.exports = router;

@@ -8,6 +8,11 @@ const Currencies = require('../models/currencies');
 const Warehouses = require('../models/warehouse');
 const Products = require('../models/products');
 const Inventory = require('../models/inventory');
+const Purchases = require('../models/purchases');
+const Sales = require('../models/sales');
+const Pos = require('../models/pos');
+const StockCard = require('../models/stockCard');
+const StockOpname = require('../models/stockOpname');
 
 exports.getProducts = (req, res) => {
     const brands = Brands.find().sort({name: 1});
@@ -529,6 +534,162 @@ exports.deleteProduct = (req, res) => {
             res.status(200).json('OK')
         })
     })
+}
+
+// PRODUCT DETAIL
+exports.overviewProduct = (req, res) => {
+    const productId = mongoose.Types.ObjectId(req.params.productId)
+    const product = Products.findById(productId).select('name stock createdAt updatedAt')
+    const pos = Pos.aggregate([
+        {$match: {items: {$elemMatch: {productId: productId}}}},
+        {$project: {
+            items: {
+                $filter: {
+                input: "$items",
+                as: "item",
+                cond: { $eq: [ "$$item.productId", productId ] }
+                }
+            }
+        }},
+        {$project: {
+            productId: '$items.productId',
+            qty: {$sum: '$items.qty'}
+        }},
+        {$group: {
+            _id: 'POS',
+            total: {$sum: '$qty'}
+        }}
+    ])
+
+    const sales = Sales.aggregate([
+        {$match: {$and: [{items: {$elemMatch: {productId: productId}}}, {invoiceStatus: 'Fully Invoiced'}]}},
+        {$project: {
+            items: {
+                $filter: {
+                input: "$items",
+                as: "item",
+                cond: { $eq: [ "$$item.productId", productId ] }
+                }
+            }
+        }},
+        {$project: {
+            productId: '$items.productId',
+            qty: {$sum: '$items.delivered'}
+        }},
+        {$group: {
+            _id: 'Sales',
+            total: {$sum: '$qty'}
+        }}
+    ])
+
+    const purchases = Purchases.aggregate([
+        {$match:{$and: [{items: {$elemMatch: {productId: productId}}}, {receiveStatus: 'Done'}]}},
+        {$project: {
+            items: {
+                $filter: {
+                input: "$items",
+                as: "item",
+                cond: { $eq: [ "$$item.productId", productId ] }
+                }
+            }
+        }},
+        {$project: {
+            productId: '$items.productId',
+            qty: {$sum: '$items.received'}
+        }},
+        {$group: {
+            _id: 'pruchase',
+            total: {$sum: '$qty'}
+        }}
+    ])
+    Promise.all([
+        product,
+        pos,
+        sales,
+        purchases,
+    ])
+    .then(result => {
+        res.status(200).json({
+            product: result[0],
+            pos: result[1][0],
+            sales: result[2][0],
+            purchases: result[3][0]
+        })
+    })
+}
+
+exports.productWarehouses = (req, res) => {
+    Warehouses.find()
+    .then(result => {
+        res.status(200).json(result)
+    })
+}
+
+exports.productInvenotries = (req, res) => {
+    const currentPage = req.query.page || 1;
+    const perPage = req.query.perPage || 20;
+    const productId = mongoose.Types.ObjectId(req.params.productId)
+    const warehouseId = mongoose.Types.ObjectId(req.query.warehouseId)
+    const inventory = Inventory.find({$and: [{productId: productId}, {warehouseId: warehouseId}]})
+    const stockCount =  StockCard.aggregate([
+        {$match: {$and: [{productId: productId}, {warehouseId: warehouseId}]}},
+        {$sort: {createdAt: -1}},
+        {$count: 'count'}
+    ])
+    const stockCard =  StockCard.aggregate([
+        {$match: {$and: [{productId: productId}, {warehouseId: warehouseId}]}},
+        {$sort: {createdAt: -1}},
+        {$skip: (currentPage -1) * perPage},
+        {$limit: perPage}
+    ])
+    Promise.all([
+        inventory,
+        stockCount,
+        stockCard
+    ])
+    .then(async (result) => {
+        let totalItems;
+        if(result[1].length > 0) {
+            totalItems = result[1][0].count
+        } else {
+            totalItems = 0
+        }
+        const last_page = Math.ceil(totalItems / perPage)
+        const pageValue = currentPage * perPage - perPage + 1
+        const pageLimit = pageValue + result[2].length -1
+
+        let stockCard = result[2]
+        for(let i=0; i < stockCard.length; i++) {
+            let sc = stockCard[i]
+            if(sc.documentName == 'Point Of Sales') {
+                let doc = await Pos.findById(sc.documentId)
+                stockCard[i].document = doc.posNo
+            }
+            if(sc.documentName == 'Sales Order') {
+                let doc = await Sales.findById(sc.documentId)
+                stockCard[i].document = doc.salesNo
+            }
+            if(sc.documentName == 'Purchase Order') {
+                let doc = await Purchases.findById(sc.documentId)
+                stockCard[i].document = doc
+            }
+            if(sc.documentName == 'Stock Opname') {
+                let doc = await StockOpname.findById(sc.documentId)
+                stockCard[i].document = doc.stockOpnameNo
+            }
+        }
+        res.status(200).json({
+            inventory: result[0][0],
+            stockCards: stockCard,
+            pages: {
+                current_page: currentPage,
+                last_page: last_page,
+                pageValue: pageValue+'-'+pageLimit,
+                totalItems: totalItems 
+            },
+        })
+    })
+
 }
 
 

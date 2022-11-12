@@ -7,6 +7,9 @@ const Sales = require('../models/sales');
 const moduleDelivery = require('../modules/delivery');
 const Shippings = require('../models/shipping');
 const activity = require('../modules/activityHistory');
+const SerialNumbers = require('../models/serialNumbers');
+const stockCards = require('../modules/stockCard');
+
 exports.getDelivery = (req, res) => {
     const search = req.query.search
     const filter = req.query.filter
@@ -422,13 +425,32 @@ exports.validateDelivery = (req, res) => {
     })
     .then(async (sales) => {
         const warehouseId = delivered.warehouseId
+        const documentId = sales._id
         for (let i=0; i < items.length; i++ ) {
             let item = items[i]
+            if(item.isSerialNumber) {
+                for (let s=0; s < item.serialNumber.length; s++) {
+                    let sn = item.serialNumber[s]
+                    let serial = await SerialNumbers.findOne({$and: [{serialNumber: sn.sn}, {productId: item.productId}]})
+                    if(serial) {
+                        serial.documentIn.push(documentId)
+                        await serial.save()
+                    } else {
+                        const newSerial = new SerialNumbers({
+                            productId: item.productId,
+                            serialNumber: sn.sn,
+                            documentIn: [documentId]
+                        })
+                        await newSerial.save()
+                    }
+                }
+            }
             let inventory = await Inventories.findOne({$and: [{warehouseId: warehouseId}, {isDefault: true}, {productId: items[i].productId}]})
             if(inventory) {
                 let qty = inventory.qty - item.done
                 inventory.qty = qty
                 await inventory.save()
+                await stockCards('out', inventory.warehouseId, item.productId, documentId, 'Sales Order', item.qty, qty)
                 await updateStock(inventory.productId)
             }
         }
