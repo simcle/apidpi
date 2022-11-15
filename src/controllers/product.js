@@ -671,7 +671,7 @@ exports.productInvenotries = (req, res) => {
             }
             if(sc.documentName == 'Purchase Order') {
                 let doc = await Purchases.findById(sc.documentId)
-                stockCard[i].document = doc
+                stockCard[i].document = doc.no
             }
             if(sc.documentName == 'Stock Opname') {
                 let doc = await StockOpname.findById(sc.documentId)

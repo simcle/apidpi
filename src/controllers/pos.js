@@ -198,6 +198,8 @@ exports.insertPos = async (req, res) => {
         invoiceNo = `${dd}${mm}/DPI/INV/${yy}/1`
     }
     let documentId;
+    let documentNo;
+    let documentName;
     const pointOfSales = new Pointofsales({
         customerId: req.body.customerId,
         posNo: posNo,
@@ -214,6 +216,8 @@ exports.insertPos = async (req, res) => {
     pointOfSales.save()
     .then(result => {
         documentId = result._id
+        documentNo = result.posNo
+        documentName = 'Point Of Sales'
         const invoice = new Invoices({
             invoiceNo: invoiceNo,
             salesId: result._id,
@@ -256,13 +260,13 @@ exports.insertPos = async (req, res) => {
                     let sn = item.serialNumber[s]
                     let serial = await SerialNumbers.findOne({$and: [{serialNumber: sn.sn}, {productId: item.productId}]})
                     if(serial) {
-                        serial.documentOut.push(documentId)
+                        serial.documentOut.push({documentId: documentId, documentName: documentName, documentNo: documentNo})
                         await serial.save()
                     } else {
                         const newSerial = new SerialNumbers({
                             productId: item.productId,
                             serialNumber: sn.sn,
-                            documentOut: [documentId]
+                            documentOut: [{documentId: documentId, documentName: documentName, documentNo: documentNo}]
                         })
                         await newSerial.save()
                     }

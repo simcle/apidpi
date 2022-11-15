@@ -426,6 +426,8 @@ exports.validateDelivery = (req, res) => {
     .then(async (sales) => {
         const warehouseId = delivered.warehouseId
         const documentId = sales._id
+        const documentName = 'Sales Order'
+        const documentNo = sales.salesNo
         for (let i=0; i < items.length; i++ ) {
             let item = items[i]
             if(item.isSerialNumber) {
@@ -433,13 +435,13 @@ exports.validateDelivery = (req, res) => {
                     let sn = item.serialNumber[s]
                     let serial = await SerialNumbers.findOne({$and: [{serialNumber: sn.sn}, {productId: item.productId}]})
                     if(serial) {
-                        serial.documentIn.push(documentId)
+                        serial.documentOut.push({documentId: documentId, documentName: documentName, documentNo: documentNo})
                         await serial.save()
                     } else {
                         const newSerial = new SerialNumbers({
                             productId: item.productId,
                             serialNumber: sn.sn,
-                            documentIn: [documentId]
+                            documentOut: [{documentId: documentId, documentName: documentName, documentNo: documentNo}]
                         })
                         await newSerial.save()
                     }

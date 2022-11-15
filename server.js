@@ -40,6 +40,8 @@ const taskRoutes = require('./src/routers/tasks');
 const notificationRoutes = require('./src/routers/notifications');
 const activityRoutes = require('./src/routers/acitvities');
 
+const serialNumberRoutes = require('./src/routers/serialNumbers');
+
 const tokopediaRoutes = require('./src/routers/tokopedia');
 
 app.use('/auth', userRoutes);
@@ -68,6 +70,8 @@ app.use('/payments', authenticateToken, paymentRouters);
 app.use('/tasks', authenticateToken, taskRoutes);
 app.use('/notifications', authenticateToken, notificationRoutes);
 app.use('/activities', authenticateToken, activityRoutes);
+
+app.use('/serial', authenticateToken, serialNumberRoutes);
 
 app.use('/tokopedia', authenticateToken, tokopediaRoutes);
 

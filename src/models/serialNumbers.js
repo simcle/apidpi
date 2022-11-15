@@ -6,11 +6,15 @@ const SerialNumberSchema = new Schema({
     serialNumber: {type: String},
     documentIn: [
         {
+            documentNo: {type: String},
+            documentName: {type: String},
             documentId: {type: Schema.Types.ObjectId}
         }
     ],
     documentOut: [
         {
+            documentNo: {type: String},
+            documentName: {type: String},
             documentId: {type: Schema.Types.ObjectId}
         }
     ]
