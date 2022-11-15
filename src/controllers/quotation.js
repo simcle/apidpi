@@ -187,6 +187,7 @@ exports.getDetailQotation = (req, res) => {
                         parent: '$parents.name',
                         name: '$root.name',
                         address: '$root.address',
+                        contact: '$root.contact',
                         displayName: {
                             $cond: {
                                 if: {$ifNull: ['$parents.name', false]},
