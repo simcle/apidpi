@@ -5,6 +5,7 @@ const Inventories = require('../models/inventory');
 const SerialNumbers = require('../models/serialNumbers');
 const stockCards = require('../modules/stockCard');
 const updateStock = require('../modules/updateStock');
+const receiveProduct = require('../modules/receive');
 
 exports.getReceipts = (req, res) => {
     const search = req.query.search
@@ -279,4 +280,11 @@ exports.validateReceive = (req, res) => {
         console.log(err);
         res.status(400).send(err)
     })
+}
+
+exports.createBackOrder = async (req, res) => {
+    let backorder = req.body
+    let userId = req.user._id
+    await receiveProduct(backorder, userId)
+    res.status(200).json('OK')
 }

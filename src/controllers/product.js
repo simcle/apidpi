@@ -82,11 +82,11 @@ exports.getProductFilter = async (req, res) => {
     }
     let sort = {}
     sort[sortKey] = parseInt(sortOrder)
-    Products.find({$and: [{name: {$regex: '.*'+search+'.*', $options: 'i'}}, status, brandIds, categoriesIds, edited]})
+    Products.find({$and: [{$or: [{name: {$regex: '.*'+search+'.*', $options: 'i'}}, {sku: search}]}, status, brandIds, categoriesIds, edited]})
     .countDocuments()
     .then(count => {
         totalItems = count
-        return  Products.find({$and: [{name: {$regex: '.*'+search+'.*', $options: 'i'}}, status, brandIds, categoriesIds, edited]})
+        return  Products.find({$and: [{$or: [{name: {$regex: '.*'+search+'.*', $options: 'i'}}, {sku: search}]}, status, brandIds, categoriesIds, edited]})
         .populate('brandId', 'name')
         .populate('categoriesId', 'name')
         .skip((currentPage -1) * perPage)
