@@ -416,7 +416,7 @@ exports.validateDelivery = (req, res) => {
         for(let i=0; i < products.length; i++) {
             for(let a=0; a < items.length; a++) {
                 if(products[i].idx == items[a].idx) {
-                    products[i].delivered = products[i].delivered + items[i].done
+                    products[i].delivered = products[i].delivered + items[a].done
                 }
             }
         }
@@ -452,7 +452,7 @@ exports.validateDelivery = (req, res) => {
                 let qty = inventory.qty - item.done
                 inventory.qty = qty
                 await inventory.save()
-                await stockCards('out', inventory.warehouseId, item.productId, documentId, 'Sales Order', item.qty, qty)
+                await stockCards('out', inventory.warehouseId, item.productId, documentId, 'Sales Order', item.done, qty)
                 await updateStock(inventory.productId)
             }
         }

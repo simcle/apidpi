@@ -179,6 +179,7 @@ exports.detailReceive = (req, res) => {
                 {$project: {
                     _id: 0,
                     name: 1,
+                    isSerialNumber: 1
                 }},
             ],
             as: 'items.product'
@@ -187,6 +188,7 @@ exports.detailReceive = (req, res) => {
         {$addFields: {
             purchase: '$purchase.no',
             'items.name': '$items.product.name',
+            'items.isSerialNumber': '$items.product.isSerialNumber'
         }},
         {$unset: 'items.product'},
         {$group: {
@@ -214,6 +216,21 @@ exports.detailReceive = (req, res) => {
     })
 }
 
+exports.updateReceive = (req, res) => {
+    const receiveId = req.params.receiveId
+    Receipts.findById(receiveId)
+    .then(receive => {
+        receive.items = req.body.items
+        return receive.save()
+    })
+    .then(result => {
+        res.status(200).json(result)
+    })
+    .catch(err => {
+        res.status(400).send(err)
+    })
+}
+
 exports.validateReceive = (req, res) => {
     const receiveId = req.params.receiveId
     const items = req.body.items
@@ -234,11 +251,11 @@ exports.validateReceive = (req, res) => {
         for(let i=0; i < products.length; i++) {
             for(let a=0; a < items.length; a++) {
                 if(products[i].idx == items[a].idx) {
-                    products[i].received = products[i].received + items[i].done
+                    products[i].received = products[i].received + items[a].done
                 }
             }
         }
-        purchase.receiveStatus = 'Done'
+        purchase.receiveStatus = req.body.receiveStatus
         return purchase.save()
     })
     .then(async (purchase) => {
@@ -270,7 +287,7 @@ exports.validateReceive = (req, res) => {
                 let qty = inventory.qty + item.done
                 inventory.qty = qty
                 await inventory.save()
-                await stockCards('in', inventory.warehouseId, item.productId, documentId, 'Purchase Order', item.qty, qty)
+                await stockCards('in', inventory.warehouseId, item.productId, documentId, 'Purchase Order', item.done, qty)
                 await updateStock(inventory.productId)
             }
         }
