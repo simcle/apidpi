@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 const PaymentTerms = require('../models/paymentTerm');
-const ShipmentMethods = require('../models/shipping');
+const ShipmentMethods = require('../models/shipmentMethod');
 const ShipmentTerms = require('../models/shipmentTerm');
 const Currencies = require('../models/currencies');
 const AdditionalCharges = require('../models/additionalCharge');
@@ -137,7 +137,9 @@ exports.getDetailPurchase = (req, res) => {
             pipeline: [
                 {$project: {
                     _id: 0,
-                    name: 1
+                    name: 1,
+                    website: 1,
+                    contactLists: 1
                 }}
             ],
             as: 'supplier'
@@ -149,9 +151,47 @@ exports.getDetailPurchase = (req, res) => {
             localField: 'currencyId',
             as: 'currency'
         }},
-        {$unwind: '$currency'},
+        {$unwind: {
+            path: '$currency',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
+            from: 'paymentterms',
+            foreignField: '_id',
+            localField: 'paymentTermId',
+            as: 'paymentTerm'
+        }},
+        {$unwind: {
+            path: '$paymentTerm',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
+            from: 'shipmentterms',
+            foreignField: '_id',
+            localField: 'shipmentTermId',
+            as: 'shipmentTerm',
+        }},
+        {$unwind: {
+            path: '$shipmentTerm',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
+            from: 'shipmentmethods',
+            foreignField: '_id',
+            localField: 'shipmentMethodId',
+            as: 'shipmentMethod'
+        }},
+        {$unwind: {
+            path: '$shipmentMethod',
+            preserveNullAndEmptyArrays: true
+        }},
         {$addFields: {
             supplier: '$supplier.name',
+            website: '$supplier.website',
+            contacts: '$supplier.contactLists',
+            paymentTerm: '$paymentTerm.code',
+            shipmentTerm: '$shipmentTerm.code',
+            shipmentMethod: '$shipmentMethod.code',
             currency: '$currency.code',
             currencySymbol: '$currency.symbolNative',
         }},
@@ -193,11 +233,14 @@ exports.getDetailPurchase = (req, res) => {
     .then(result => {
         res.status(200).json(result[0])
     })
+    .catch(err => {
+        console.log(err);
+    })
 }
 
 exports.createPurchase = (req, res) => {
     const paymentTerms = PaymentTerms.find().select('_id code').sort({code: '1'}).lean();
-    const shipmentMethods = ShipmentMethods.find().select('_id name').sort({name: '1'}).lean();
+    const shipmentMethods = ShipmentMethods.find().select('_id code').sort({code: '1'}).lean();
     const shipmentTerms = ShipmentTerms.find().select('_id code').sort({code: '1'}).lean();
     const currencies = Currencies.find({status: true}).sort({name: '1'}).lean();
     const additionalCharges = AdditionalCharges.find({status: true}).sort({name: '1'}).lean();
@@ -220,7 +263,7 @@ exports.createPurchase = (req, res) => {
             }),
             shipmentMethods: result[1].map(obj => {
                 obj.id = obj._id,
-                obj.text = obj.name
+                obj.text = obj.code
                 return obj
             }),
             shipmentTerms: result[2].map(obj => {
@@ -253,7 +296,7 @@ exports.createPurchase = (req, res) => {
 exports.editPurchase = (req, res) => {
     const purchaseId = mongoose.Types.ObjectId(req.params.purchaseId);
     const paymentTerms = PaymentTerms.find().select('_id code').sort({code: '1'}).lean();
-    const shipmentMethods = ShipmentMethods.find().select('_id name').sort({name: '1'}).lean();
+    const shipmentMethods = ShipmentMethods.find().select('_id code').sort({code: '1'}).lean();
     const shipmentTerms = ShipmentTerms.find().select('_id code').sort({code: '1'}).lean();
     const currencies = Currencies.find({status: true}).sort({name: '1'}).lean();
     const additionalCharges = AdditionalCharges.find({status: true}).sort({name: '1'}).lean();
@@ -322,7 +365,7 @@ exports.editPurchase = (req, res) => {
             }),
             shipmentMethods: result[1].map(obj => {
                 obj.id = obj._id,
-                obj.text = obj.name
+                obj.text = obj.code
                 return obj
             }),
             shipmentTerms: result[2].map(obj => {
@@ -406,6 +449,8 @@ exports.postPurchase = (req, res) => {
             currencyId: req.body.currencyId,
             exchangeRate: req.body.exchangeRate,
             additionalCharges: req.body.additionalCharges,
+            shipmentTermId: req.body.shipmentTermId,
+            shipmentMethodId: req.body.shipmentMethodId,
             shipping: req.body.shipping.shipmentMethodId ? req.body.shipping:'',
             items: req.body.items,
             total: req.body.total,
@@ -440,6 +485,9 @@ exports.putPurchase = (req, res) => {
         purchase.dateOrdered = req.body.dateOrdered;
         purchase.estimatedReceiveDate = req.body.estimatedReceiveDate;
         purchase.dateValidaty = req.body.dateValidaty;
+        purchase.paymentTermId = req.body.paymentTermId
+        purchase.shipmentTermId = req.body.shipmentTermId
+        purchase.shipmentMethodId = req.body.shipmentMethodId
         if(req.body.shipping.shipmentMethodId) {
             purchase.shipping = req.body.shipping
         }

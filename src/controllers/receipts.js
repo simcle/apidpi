@@ -231,6 +231,35 @@ exports.updateReceive = (req, res) => {
     })
 }
 
+exports.confirmReceive = (req, res) => {
+    const receiveId = req.params.receiveId
+    Receipts.findById(receiveId)
+    .then(receive => {
+        receive.status = 'To Validate'
+        return receive.save()
+    })
+    .then(result => {
+        res.status(200).json(result)
+    })
+    .catch(err => {
+        res.status(400).send(err)
+    })
+}
+
+exports.setToReady = (req, res) => {
+    const receiveId = req.params.receiveId
+    Receipts.findById(receiveId)
+    .then(receive => {
+        receive.status = 'Ready'
+        return receive.save()
+    })
+    .then(result => {
+        res.status(200).json(result)
+    })
+    .catch(err => {
+        res.status(400).send(err)
+    })
+}
 exports.validateReceive = (req, res) => {
     const receiveId = req.params.receiveId
     const items = req.body.items

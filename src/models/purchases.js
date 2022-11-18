@@ -14,6 +14,8 @@ const PurchaseSchema = new Schema({
     paymentTermId: {type: Schema.Types.ObjectId, ref: 'PaymentTerm'},
     currencyId: {type: Schema.Types.ObjectId, ref: 'Currency'},
     exchangeRate: {type: Number},
+    shipmentTermId: {type: Schema.Types.ObjectId},
+    shipmentMethodId: {type: Schema.Types.ObjectId},
     additionalCharges: {type: Array},
     shipping: {
         shipmentMethodId: {type: Schema.Types.ObjectId, ref: 'Shippings'},
