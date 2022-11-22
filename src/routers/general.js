@@ -39,4 +39,8 @@ router.put('/general/warehouse/status/:warehouseId', generalController.putWareho
 router.put('/general/warehouse/set-default/:warehouseId', generalController.putWarehouseSetDefault);
 router.put('/general/warehouse/order/set', generalController.putWarehouseOrder);
 router.delete('/general/warehouse/section/:sectionId', generalController.deleteWarehouseSection);
+
+router.post('/general/forwarding', generalController.postForwarding);
+router.put('/general/forwarding/:forwardingId', generalController.putForwarding);
+
 module.exports = router;

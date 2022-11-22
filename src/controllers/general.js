@@ -9,6 +9,7 @@ const TaxCode = require('../models/taxCode');
 const Warehouse = require('../models/warehouse');
 const Section = require('../models/section');
 const Inventory = require('../models/inventory');
+const Forwarding = require('../models/forwarding');
 
 exports.getGeneral =  (req, res) => {
     const currencies =  Currency.find().sort({createdAt: 'desc'});
@@ -19,6 +20,7 @@ exports.getGeneral =  (req, res) => {
     const additionalcharges =  AdditionalCharge.find().sort({createdAt: 'desc'});
     const taxcodes =  TaxCode.find().sort({createdAt: 'desc'});
     const warehouses =  Warehouse.find().populate('sections').sort({order: 'asc'});
+    const forwarding = Forwarding.find().sort({company: 'asc'});
     Promise.all([
         currencies, 
         creditterms, 
@@ -27,7 +29,8 @@ exports.getGeneral =  (req, res) => {
         shipmentmethods, 
         additionalcharges,
         taxcodes,
-        warehouses
+        warehouses,
+        forwarding
     ])
     .then(result => {
         res.status(200).json({
@@ -38,7 +41,8 @@ exports.getGeneral =  (req, res) => {
             shipmentmethods: result[4],
             additionalcharges: result[5],
             taxcodes: result[6],
-            warehouses: result[7]
+            warehouses: result[7],
+            forwarding: result[8]
         })
     })
     .catch(err => {
@@ -507,4 +511,45 @@ exports.deleteWarehouseSection = (req, res) => {
     })
 }
 
+exports.postForwarding = (req, res) => {
+    const forwarding = new Forwarding({
+        company: req.body.company,
+        address: req.body.address,
+        city: req.body.city,
+        country: req.body.country,
+        zip: req.body.zip,
+        phone: req.body.phone,
+        fax: req.body.fax,
+        shippingMark: req.body.shippingMark
+    })
+    forwarding.save()
+    .then(() => {
+        return Forwarding.find().sort({company: 'asc'})
+    })
+    .then(result => {
+        res.status(200).json(result)
+    })
+}
+
+exports.putForwarding = (req, res) => {
+    const forwardingId = req.params.forwardingId
+    Forwarding.findById(forwardingId)
+    .then(forwarding => {
+        forwarding.company = req.body.company
+        forwarding.address = req.body.address
+        forwarding.city = req.body.city
+        forwarding.country = req.body.country
+        forwarding.zip = req.body.zip
+        forwarding.phone = req.body.phone
+        forwarding.fax = req.body.fax
+        forwarding.shippingMark = req.body.shippingMark
+        return forwarding.save()
+    })
+    .then(() => {
+        return Forwarding.find().sort({company: 'asc'})
+    })
+    .then(result => {
+        res.status(200).json(result)
+    })
+}
 
