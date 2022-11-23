@@ -520,6 +520,7 @@ exports.postForwarding = (req, res) => {
         zip: req.body.zip,
         phone: req.body.phone,
         fax: req.body.fax,
+        email: req.body.email,
         shippingMark: req.body.shippingMark
     })
     forwarding.save()
@@ -542,6 +543,7 @@ exports.putForwarding = (req, res) => {
         forwarding.zip = req.body.zip
         forwarding.phone = req.body.phone
         forwarding.fax = req.body.fax
+        forwarding.email = req.body.email
         forwarding.shippingMark = req.body.shippingMark
         return forwarding.save()
     })

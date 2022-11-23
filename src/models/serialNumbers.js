@@ -4,6 +4,7 @@ const Schema = mongoose.Schema;
 const SerialNumberSchema = new Schema({
     productId: {type: Schema.Types.ObjectId},
     serialNumber: {type: String},
+    status: {type: String},
     documentIn: [
         {
             documentNo: {type: String},

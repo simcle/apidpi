@@ -6,8 +6,10 @@ const Currencies = require('../models/currencies');
 const AdditionalCharges = require('../models/additionalCharge');
 const TaxCode = require('../models/taxCode');
 const Suppliers = require('../models/suppliers');
+const Forwarding = require('../models/forwarding');
 const Purchases = require('../models/purchases');
 const receiveProduct = require('../modules/receive');
+
 exports.getPurchases = (req, res) => {
     const currentPage = req.query.page || 1;
     const perPage = req.query.perPage || 20;
@@ -146,11 +148,34 @@ exports.getDetailPurchase = (req, res) => {
         }},
         {$unwind: '$supplier'},
         {$lookup: {
+            from: 'forwardings',
+            foreignField: '_id',
+            localField: 'shipToId',
+            as: 'shipTo'
+        }},
+        {$unwind: {
+            path: '$shipTo',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
             from: 'currencies',
             foreignField:'_id',
             localField: 'currencyId',
             as: 'currency'
         }},
+        {$lookup: {
+            from: 'users',
+            foreignField: '_id',
+            localField: 'userId',
+            pipeline: [{
+                $project: {
+                    _id: 0,
+                    name: 1
+                }
+            }],
+            as: 'user'
+        }},
+        {$unwind: '$user'},
         {$unwind: {
             path: '$currency',
             preserveNullAndEmptyArrays: true
@@ -310,6 +335,16 @@ exports.editPurchase = (req, res) => {
             as: 'supplier'
         }},
         {$unwind: '$supplier'},
+        {$lookup: {
+            from: 'forwardings',
+            foreignField: '_id',
+            localField: 'shipToId',
+            as: 'shipTo'
+        }},
+        {$unwind: {
+            path: '$shipTo',
+            preserveNullAndEmptyArrays: true
+        }},
         {$unwind: '$items'},
         {$lookup: {
             from: 'products',
@@ -408,6 +443,14 @@ exports.getSupplier = (req, res) => {
     })
 };
 
+exports.getForwarding = (req, res) => {
+    const search = req.query.search;
+    Forwarding.find({company: {$regex: '.*'+search+'.*'}}).sort({company: 1})
+    .then(result => {
+        res.status(200).json(result)
+    })
+}
+
 exports.postPurchase = (req, res) => {
     let newID;
     const date = new Date();
@@ -443,8 +486,10 @@ exports.postPurchase = (req, res) => {
             referenceNumber: req.body.referenceNumber,
             remarks: req.body.remarks,
             tags: req.body.tags,
-            dateValidaty: req.body.dateValidaty,
             estimatedReceiveDate: req.body.estimatedReceiveDate,
+            invoiceDate: req.body.invoiceDate,
+            dateValidaty: req.body.dateValidaty,
+            shipToId: req.body.shipToId,
             paymentTermId: req.body.paymentTermId,
             currencyId: req.body.currencyId,
             exchangeRate: req.body.exchangeRate,
@@ -485,6 +530,8 @@ exports.putPurchase = (req, res) => {
         purchase.dateOrdered = req.body.dateOrdered;
         purchase.estimatedReceiveDate = req.body.estimatedReceiveDate;
         purchase.dateValidaty = req.body.dateValidaty;
+        purchase.invoiceDate = req.body.invoiceDate
+        purchase.shipToId = req.body.shipToId
         purchase.paymentTermId = req.body.paymentTermId
         purchase.shipmentTermId = req.body.shipmentTermId
         purchase.shipmentMethodId = req.body.shipmentMethodId

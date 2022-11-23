@@ -7,6 +7,7 @@ router.get('/', purchaseController.getPurchases);
 router.get('/create', purchaseController.createPurchase);
 router.get('/edit/:purchaseId', purchaseController.editPurchase);
 router.get('/supplier', purchaseController.getSupplier);
+router.get('/forwarding', purchaseController.getForwarding);
 router.post('/create', purchaseController.postPurchase);
 router.get('/detail/:purchaseId', purchaseController.getDetailPurchase);
 router.put('/update/:purchaseId', purchaseController.putPurchase);

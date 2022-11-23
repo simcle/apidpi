@@ -10,6 +10,8 @@ const PurchaseSchema = new Schema({
     remarks: {type: String},
     tags: {type: Array},
     estimatedReceiveDate: {type: Date},
+    invoiceDate: {type: Date},
+    shipToId: {type: Schema.Types.ObjectId},
     dateValidaty: {type: Date},
     paymentTermId: {type: Schema.Types.ObjectId, ref: 'PaymentTerm'},
     currencyId: {type: Schema.Types.ObjectId, ref: 'Currency'},
