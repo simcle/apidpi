@@ -301,6 +301,7 @@ exports.getDetailDelivery = async (req, res) => {
                 {$project: {
                     _id: 0,
                     name: 1,
+                    isSerialNumber: 1
                 }},
             ],
             as: 'items.product'
@@ -333,6 +334,7 @@ exports.getDetailDelivery = async (req, res) => {
         {$addFields: {
             'items.name': '$items.product.name',
             'items.stock': '$items.product.stock.qty',
+            'items.isSerialNumber': '$items.product.isSerialNumber'
         }},
         {$unset: 'items.product'},
         {$group: {

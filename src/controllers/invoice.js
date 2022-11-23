@@ -257,8 +257,19 @@ exports.getDetailInvoice = (req, res) => {
                     connectToField: '_id',
                     as: 'parents'
                 }},
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$_id',
+                    connectFromField: '_id',
+                    connectToField: 'parentId',
+                    as: 'attn'
+                }},
                 {$unwind: {
                     path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                }},
+                {$unwind: {
+                    path: '$attn',
                     preserveNullAndEmptyArrays: true
                 }},
                 {$sort: {'parents._id': 1}},
@@ -266,14 +277,17 @@ exports.getDetailInvoice = (req, res) => {
                     $group: {
                         _id: "$_id",
                         parents: { $first: "$parents" },
+                        attn: {$first: "$attn"},
                         root: { $first: "$$ROOT" }
                     }
                 },
                 {
                     $project: {
                         parent: '$parents.name',
+                        attn: '$attn.name',
                         name: '$root.name',
                         address: '$root.address',
+                        contact: '$root.contact',
                         displayName: {
                             $cond: {
                                 if: {$ifNull: ['$parents.name', false]},
