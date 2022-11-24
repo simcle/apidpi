@@ -299,12 +299,15 @@ exports.validateReceive = (req, res) => {
                     let sn = item.serialNumber[s]
                     let serial = await SerialNumbers.findOne({$and: [{serialNumber: sn.sn}, {productId: item.productId}]})
                     if(serial) {
+                        serial.status = 'In Stock',
                         serial.documentIn.push({documentId: documentId, documentNo: documentNo, documentName: documentName})
                         await serial.save()
                     } else {
+                        console.log(sn)
                         const newSerial = new SerialNumbers({
                             productId: item.productId,
                             serialNumber: sn.sn,
+                            status: 'In Stock',
                             documentIn: [{documentId: documentId, documentNo: documentNo, documentName: documentName}]
                         })
                         await newSerial.save()

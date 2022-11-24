@@ -174,17 +174,30 @@ exports.getDetailQotation = (req, res) => {
                     path: '$parents',
                     preserveNullAndEmptyArrays: true
                 }},
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$_id',
+                    connectFromField: '_id',
+                    connectToField: 'parentId',
+                    as: 'attn'
+                }},
+                {$unwind: {
+                    path: '$attn',
+                    preserveNullAndEmptyArrays: true
+                }},
                 {$sort: {'parents._id': 1}},
                 {
                     $group: {
                         _id: "$_id",
                         parents: { $first: "$parents" },
+                        attn: {$first: "$attn"},
                         root: { $first: "$$ROOT" }
                     }
                 },
                 {
                     $project: {
                         parent: '$parents.name',
+                        attn: '$attn.name',
                         name: '$root.name',
                         address: '$root.address',
                         contact: '$root.contact',

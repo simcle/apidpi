@@ -6,7 +6,7 @@ exports.getSerialNumber = (req, res) => {
     const currentPage = req.query.page || 1;
     const perPage = req.query.perPage || 20;
     const search = req.query.search;
-    const filter = req.query.filter;
+    const filter = req.query.filters;
     let totalItems;
     let sn;
     if(search) {

@@ -437,12 +437,14 @@ exports.validateDelivery = (req, res) => {
                     let sn = item.serialNumber[s]
                     let serial = await SerialNumbers.findOne({$and: [{serialNumber: sn.sn}, {productId: item.productId}]})
                     if(serial) {
+                        serial.status = 'Out Of Stock'
                         serial.documentOut.push({documentId: documentId, documentName: documentName, documentNo: documentNo})
                         await serial.save()
                     } else {
                         const newSerial = new SerialNumbers({
                             productId: item.productId,
                             serialNumber: sn.sn,
+                            status: 'Out Of Stock',
                             documentOut: [{documentId: documentId, documentName: documentName, documentNo: documentNo}]
                         })
                         await newSerial.save()
