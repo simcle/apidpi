@@ -12,7 +12,7 @@ const ProductSchema = new Schema({
     sku: {type: String, unique: true},
     isSerialNumber: {type: Boolean, default: false},
     currency: {type: String, default: ''},
-    currencySymbol: {type: String, default: ''},
+    currencySymbol: {type: String, default: 0},
     purchasePrice: {type: Number, default: 0},
     sellingPrice: {type: Number},
     netPrice: {type: Number, default: 0},

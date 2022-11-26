@@ -268,16 +268,18 @@ exports.postProduct = (req, res) => {
     Products.find({sku: req.body.sku})
     .then(async (result) => {
         if(result.length < 1) {
-            for await (const image of images) {
-                let filePath = `./public/img/products/700/${image.filename}`;
-                let filePathSmall = `./public/img/products/200/${image.filename}`;
-                await sharp(image.path)
-                .resize({height: 700})
-                .toFile(filePath);
-                await sharp(image.path)
-                .resize({height: 200})
-                .toFile(filePathSmall)
-                imagesList.push(image.filename)
+            if(images) {
+                for await (const image of images) {
+                    let filePath = `./public/img/products/700/${image.filename}`;
+                    let filePathSmall = `./public/img/products/200/${image.filename}`;
+                    await sharp(image.path)
+                    .resize({height: 700})
+                    .toFile(filePath);
+                    await sharp(image.path)
+                    .resize({height: 200})
+                    .toFile(filePathSmall)
+                    imagesList.push(image.filename)
+                }
             }
 
             if(attachments) {
@@ -332,10 +334,12 @@ exports.postProduct = (req, res) => {
                 res.status(400).send(err)
             })
         } else {
-            for(const image of images) {
-                fs.unlink(image.path, err => {
-                    if(err) return
-                })
+            if(images) {
+                for(const image of images) {
+                    fs.unlink(image.path, err => {
+                        if(err) return
+                    })
+                }
             }
             res.status(400).send('SKU is already exists');
         }
@@ -389,25 +393,25 @@ exports.putProduct = async (req, res) => {
                 attachmentLists.push(file.path)
             }
         }
-        product.images = imagesList,
-        product.attachments = attachmentLists,
-        product.name = req.body.name,
+        product.images = imagesList
+        product.attachments = attachmentLists
+        product.name = req.body.name
         product.brandId = req.body.brandId,
-        product.categoriesId = JSON.parse(req.body.categoriesId),
-        product.condition = req.body.condition,
-        product.description = req.body.description,
-        product.videos = JSON.parse(req.body.videos),
-        product.sku = req.body.sku,
-        product.isSerialNumber = req.body.isSerialNumber,
-        product.currency = req.body.currency,
-        product.currencySymbol = req.body.currencySymbol,
-        product.purchasePrice = req.body.purchasePrice,
-        product.sellingPrice = req.body.sellingPrice,
-        product.netPrice = req.body.netPrice,
-        product.wholesale = JSON.parse(req.body.wholesale),
-        product.measurements = JSON.parse(req.body.measurements),
-        product.notes = JSON.parse(req.body.notes),
-        product.accessories = JSON.parse(req.body.accessories),
+        product.categoriesId = JSON.parse(req.body.categoriesId)
+        product.condition = req.body.condition
+        product.description = req.body.description
+        product.videos = JSON.parse(req.body.videos)
+        product.sku = req.body.sku
+        product.isSerialNumber = req.body.isSerialNumber
+        product.currency = req.body.currency
+        product.currencySymbol = req.body.currencySymbol
+        product.purchasePrice = req.body.purchasePrice
+        product.sellingPrice = req.body.sellingPrice
+        product.netPrice = req.body.netPrice
+        product.wholesale = JSON.parse(req.body.wholesale)
+        product.measurements = JSON.parse(req.body.measurements)
+        product.notes = JSON.parse(req.body.notes)
+        product.accessories = JSON.parse(req.body.accessories)
         product.preorder = JSON.parse(req.body.preorder)
         product.isEdited = false
         return product.save();
