@@ -307,7 +307,8 @@ exports.getDetailInvoice = (req, res) => {
             foreignField: '_id',
             pipeline: [
                 {$project: {
-                    salesNo: 1
+                    salesNo: 1,
+                    customerPO: 1
                 }}
             ],
             as: 'sales'
@@ -338,7 +339,8 @@ exports.getDetailInvoice = (req, res) => {
                     then: '$sales.salesNo',
                     else: '$pos.posNo'
                 }
-            }
+            },
+            customerPO: '$sales.customerPO'
         }},
         {$unwind: '$items'},
         {$lookup: {

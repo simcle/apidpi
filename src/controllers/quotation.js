@@ -214,6 +214,21 @@ exports.getDetailQotation = (req, res) => {
             as: 'customer'
         }},
         {$unwind: '$customer'},
+        {$lookup: {
+            from: 'shippings',
+            foreignField: '_id',
+            localField: 'shipping.shipmentMethodId',
+            pipeline: [
+                {$project: {
+                    name: 1,
+                }}
+            ],
+            as: 'shipVia'
+        }},
+        {$unwind: {
+            path: '$shipVia',
+            preserveNullAndEmptyArrays: true
+        }},
         {$unwind: '$items'},
         {$lookup: {
             from: 'products',
