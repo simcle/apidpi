@@ -44,6 +44,9 @@ const serialNumberRoutes = require('./src/routers/serialNumbers');
 
 const tokopediaRoutes = require('./src/routers/tokopedia');
 
+const updateRoutes = require('./src/routers/update');
+app.use('/update', updateRoutes);
+
 app.use('/auth', userRoutes);
 app.use('/dashboard', authenticateToken, dashboardRoutes);
 app.use('/setting', authenticateToken, companyRouters);

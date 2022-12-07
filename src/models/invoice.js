@@ -5,6 +5,8 @@ const InvoiceSchema = new Schema({
     invoiceNo: {type: String},
     salesId: {type: Schema.Types.ObjectId, ref: 'sales'},
     customerId: {type: Schema.Types.ObjectId, ref: 'customers'},
+    billTo: {type: Schema.Types.ObjectId},
+    shipTo: {type: Schema.Types.ObjectId},
     dueDate: {type: Date},
     confirmDate: {type: Date},
     paymentStatus: {type: String},
@@ -41,6 +43,7 @@ const InvoiceSchema = new Schema({
             status: {type: String, default: 'Nothing'},
         }
     ],
+    bankId: {type: Schema.Types.ObjectId},
     total: {type: Number},
     additionalCharges: {type: Array},
     totalAdditionalCharges: {type: Number},

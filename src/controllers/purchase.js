@@ -503,7 +503,7 @@ exports.postPurchase = (req, res) => {
             discount: req.body.discount,
             tax: req.body.tax,
             grandTotal: req.body.grandTotal,
-            status: 'RFQ',
+            status: 'Draft',
             receiveStatus: 'Nothing to Receive',
             billingStatus: 'Nothing to Bill',
             userId: req.user._id
@@ -561,7 +561,7 @@ exports.confirmPurchase = (req, res) => {
     const purchaseId = req.params.purchaseId
     Purchases.findById(purchaseId)
     .then(purchase => {
-        purchase.status = 'Purchase Order'
+        purchase.status = 'PO Firm'
         return purchase.save()
     })
     .then(() => {
@@ -598,7 +598,7 @@ exports.setToRfq = (req, res) => {
     const purchaseId = req.params.purchaseId
     Purchases.findById(purchaseId)
     .then(purchase => {
-        purchase.status = 'RFQ'
+        purchase.status = 'Draft'
         return purchase.save()
     })
     .then(() => {

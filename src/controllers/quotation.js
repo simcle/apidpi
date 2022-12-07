@@ -420,7 +420,9 @@ exports.postQuotation = (req, res) => {
         const quotation = new Sales({
             quotationNo: newID,
             customerId: req.body.customerId,
-            customerPO: req.body.customerPO,
+            billTo: req.body.customerId,
+            shipTo: req.body.customerId,
+            customerReference: req.body.customerReference,
             remarks: req.body.remarks,
             tags: req.body.tags,
             estimatedDeliveryTime: req.body.estimatedDeliveryTime,
@@ -708,7 +710,9 @@ exports.putQuotation = async (req, res) => {
     Sales.findById(quotationId)
     .then(quotation => {
             quotation.customerId = req.body.customerId
-            quotation.customerPO = req.body.customerPO
+            quotation.billTo = req.body.customerId
+            quotation.shipTo = req.body.customerId
+            quotation.customerReference = req.body.customerReference
             quotation.remarks = req.body.remarks
             quotation.tags = req.body.tags
             quotation.estimatedDeliveryTime = req.body.estimatedDeliveryTime

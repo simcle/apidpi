@@ -165,7 +165,6 @@ exports.createInvoice = async (req, res) => {
         obj.qty = obj.qty - obj.invoiced
         return obj
     }).filter(obj => obj.qty > 0)
-
     const downPayments = req.body.downPayments.filter(obj => obj.status == 'Nothing')
 
     let invoice;
@@ -174,6 +173,8 @@ exports.createInvoice = async (req, res) => {
             invoiceNo: 'Draft Invoice',
             salesId: req.body._id,
             customerId: req.body.customerId,
+            billTo: req.body.billTo,
+            shipTo: req.body.shipTo,
             dueDate: new Date(),
             confirmDate: new Date(),
             paymentStatus: 'Not Paid',
@@ -197,6 +198,8 @@ exports.createInvoice = async (req, res) => {
             invoiceNo: 'Draft Invoice',
             salesId: req.body._id,
             customerId: req.body.customerId,
+            billTo: req.body.billTo,
+            shipTo: req.body.shipTo,
             dueDate: new Date(),
             confirmDate: new Date(),
             paymentStatus: 'Not Paid',
@@ -247,7 +250,7 @@ exports.getDetailInvoice = (req, res) => {
         {$match: {_id: invoiceId}},
         {$lookup: {
             from: 'customers',
-            localField: 'customerId',
+            localField: 'billTo',
             foreignField: '_id',
             pipeline: [
                 {$graphLookup: {
@@ -257,16 +260,71 @@ exports.getDetailInvoice = (req, res) => {
                     connectToField: '_id',
                     as: 'parents'
                 }},
+                {$unwind: {
+                    path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                }},
+                {$sort: {'parents._id': 1}},
+                {
+                    $group: {
+                        _id: "$_id",
+                        parents: { $first: "$parents" },
+                        root: { $first: "$$ROOT" }
+                    }
+                },
+                {
+                    $project: {
+                        address: '$root.address',
+                        contact: '$root.contact',
+                        customer: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: '$parents.name',
+                                else: '$root.name'
+                            }
+                        },
+                        displayName: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: {$concat: ['$parents.name', ', ', '$root.name']},
+                                else: '$root.name'
+                            }
+                        },
+                        attn: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: '$root.name',
+                                else: ''
+                            }
+                        },
+                    }
+                },
+            ],
+            as: 'billTo'
+        }},
+        {$unwind: '$billTo'},
+        {$lookup: {
+            from: 'customers',
+            localField: 'shipTo',
+            foreignField: '_id',
+            pipeline: [
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$parentId',
+                    connectFromField: 'parentId',
+                    connectToField: '_id',
+                    as: 'parents'
+                }},
+                {$unwind: {
+                    path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                }},
                 {$graphLookup: {
                     from: 'customers',
                     startWith: '$_id',
                     connectFromField: '_id',
                     connectToField: 'parentId',
                     as: 'attn'
-                }},
-                {$unwind: {
-                    path: '$parents',
-                    preserveNullAndEmptyArrays: true
                 }},
                 {$unwind: {
                     path: '$attn',
@@ -283,24 +341,35 @@ exports.getDetailInvoice = (req, res) => {
                 },
                 {
                     $project: {
-                        parent: '$parents.name',
-                        attn: '$attn.name',
-                        name: '$root.name',
                         address: '$root.address',
                         contact: '$root.contact',
+                        customer: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: '$parents.name',
+                                else: '$root.name'
+                            }
+                        },
                         displayName: {
                             $cond: {
                                 if: {$ifNull: ['$parents.name', false]},
                                 then: {$concat: ['$parents.name', ', ', '$root.name']},
                                 else: '$root.name'
                             }
-                        }
+                        },
+                        attn: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: '$root.name',
+                                else: ''
+                            }
+                        },
                     }
                 },
             ],
-            as: 'customer'
+            as: 'shipTo'
         }},
-        {$unwind: '$customer'},
+        {$unwind: '$shipTo'},
         {$lookup: {
             from: 'sales',
             localField: 'salesId',
@@ -341,6 +410,16 @@ exports.getDetailInvoice = (req, res) => {
                 }
             },
             customerPO: '$sales.customerPO'
+        }},
+        {$lookup: {
+            from: 'banks',
+            localField: 'bankId',
+            foreignField: '_id',
+            as: 'bank'
+        }},
+        {$unwind: {
+            path: '$bank',
+            preserveNullAndEmptyArrays: true
         }},
         {$unwind: '$items'},
         {$lookup: {
@@ -434,5 +513,44 @@ exports.confirmInvoice = (req, res) => {
     })
     .catch(err => {
         res.status(400).send(err)
+    })
+}
+
+exports.updateInvoice = async (req, res) => {
+    const invoiceId = req.params.invoiceId
+    Invoices.findById(invoiceId)
+    .then(inv => {
+        inv.bankId = req.body.bankId
+        return inv.save()
+    })
+    .then (() => {
+        res.status(200).json('OK')
+    })
+}
+
+exports.deleteInvoice = async (req, res) => {
+    const invoiceId = req.params.invoiceId
+    const salesId = req.query.salesId
+    const downPaymentId = req.query.downPaymentId
+    const items = req.body.items
+    await Invoices.findByIdAndDelete(invoiceId)
+    Sales.findById(salesId)
+    .then(sale => {
+        let dp = sale.downPayments.findIndex(obj => obj._id == downPaymentId)
+        for (let i=0; i < items.length; i++) {
+            for(let s=0; s < sale.items.length; s++) {
+                if(items[i].idx == sale.items[s].idx) {
+                    if(items[i].qty > 0) {
+                        sale.items[s].invoiced = sale.items[s].invoiced - items[i].qty
+                    }
+                }
+            }
+        }
+        sale.invoiceStatus = 'Nothing to Invoice'
+        sale.downPayments.splice(dp, 1)
+        return sale.save()
+    })
+    .then(result => {
+        res.status(200).json(result)
     })
 }

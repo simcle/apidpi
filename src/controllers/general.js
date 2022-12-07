@@ -513,10 +513,12 @@ exports.deleteWarehouseSection = (req, res) => {
 
 exports.postForwarding = (req, res) => {
     const forwarding = new Forwarding({
+        name: req.body.name,
         company: req.body.company,
         address: req.body.address,
         city: req.body.city,
         country: req.body.country,
+        state: req.body.state,
         zip: req.body.zip,
         phone: req.body.phone,
         fax: req.body.fax,
@@ -536,10 +538,12 @@ exports.putForwarding = (req, res) => {
     const forwardingId = req.params.forwardingId
     Forwarding.findById(forwardingId)
     .then(forwarding => {
+        forwarding.name = req.body.name
         forwarding.company = req.body.company
         forwarding.address = req.body.address
         forwarding.city = req.body.city
         forwarding.country = req.body.country
+        forwarding.state = req.body.state
         forwarding.zip = req.body.zip
         forwarding.phone = req.body.phone
         forwarding.fax = req.body.fax

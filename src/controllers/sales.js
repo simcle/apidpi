@@ -7,6 +7,7 @@ const AdditionalCharges = require('../models/additionalCharge');
 const TaxCode = require('../models/taxCode');
 const Produts = require('../models/products');
 const Sales = require('../models/sales');
+const Invoices = require('../models/invoice');
 const Activity = require('../models/activity');
 const Task = require('../models/tasks');
 const activity = require('../modules/activityHistory');
@@ -157,11 +158,11 @@ exports.getSales = (req, res) => {
 
 exports.getDetailSales = (req, res) => {
     const salesId = mongoose.Types.ObjectId(req.params.salesId);
-    const sales = Sales.aggregate([
+    const quotation = Sales.aggregate([
         {$match: {_id: salesId}},
         {$lookup: {
             from: 'customers',
-            localField: 'customerId',
+            localField: 'billTo',
             foreignField: '_id',
             pipeline: [
                 {$graphLookup: {
@@ -175,19 +176,33 @@ exports.getDetailSales = (req, res) => {
                     path: '$parents',
                     preserveNullAndEmptyArrays: true
                 }},
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$_id',
+                    connectFromField: '_id',
+                    connectToField: 'parentId',
+                    as: 'attn'
+                }},
+                {$unwind: {
+                    path: '$attn',
+                    preserveNullAndEmptyArrays: true
+                }},
                 {$sort: {'parents._id': 1}},
                 {
                     $group: {
                         _id: "$_id",
                         parents: { $first: "$parents" },
+                        attn: {$first: "$attn"},
                         root: { $first: "$$ROOT" }
                     }
                 },
                 {
                     $project: {
                         parent: '$parents.name',
+                        attn: '$attn.name',
                         name: '$root.name',
                         address: '$root.address',
+                        contact: '$root.contact',
                         displayName: {
                             $cond: {
                                 if: {$ifNull: ['$parents.name', false]},
@@ -198,9 +213,80 @@ exports.getDetailSales = (req, res) => {
                     }
                 },
             ],
-            as: 'customer'
+            as: 'billTo'
         }},
-        {$unwind: '$customer'},
+        {$unwind: '$billTo'},
+        {$lookup: {
+            from: 'customers',
+            localField: 'shipTo',
+            foreignField: '_id',
+            pipeline: [
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$parentId',
+                    connectFromField: 'parentId',
+                    connectToField: '_id',
+                    as: 'parents'
+                }},
+                {$unwind: {
+                    path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                }},
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$_id',
+                    connectFromField: '_id',
+                    connectToField: 'parentId',
+                    as: 'attn'
+                }},
+                {$unwind: {
+                    path: '$attn',
+                    preserveNullAndEmptyArrays: true
+                }},
+                {$sort: {'parents._id': 1}},
+                {
+                    $group: {
+                        _id: "$_id",
+                        parents: { $first: "$parents" },
+                        attn: {$first: "$attn"},
+                        root: { $first: "$$ROOT" }
+                    }
+                },
+                {
+                    $project: {
+                        parent: '$parents.name',
+                        attn: '$attn.name',
+                        name: '$root.name',
+                        address: '$root.address',
+                        contact: '$root.contact',
+                        displayName: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: {$concat: ['$parents.name', ', ', '$root.name']},
+                                else: '$root.name'
+                            }
+                        }
+                    }
+                },
+            ],
+            as: 'shipTo'
+        }},
+        {$unwind: '$shipTo'},
+        {$lookup: {
+            from: 'shippings',
+            foreignField: '_id',
+            localField: 'shipping.shipmentMethodId',
+            pipeline: [
+                {$project: {
+                    name: 1,
+                }}
+            ],
+            as: 'shipVia'
+        }},
+        {$unwind: {
+            path: '$shipVia',
+            preserveNullAndEmptyArrays: true
+        }},
         {$unwind: '$items'},
         {$lookup: {
             from: 'products',
@@ -319,14 +405,20 @@ exports.getDetailSales = (req, res) => {
         }},
         {$sort: {createdAt: -1}}
     ])
+    const delivery = Deliveries.find({salesId: salesId})
+    const invoices = Invoices.find({salesId: salesId})
     Promise.all([
-        sales,
-        activities
+        quotation,
+        activities,
+        delivery,
+        invoices
     ])
     .then(result => {
         res.status(200).json({
             sales: result[0][0],
-            activities: result[1]
+            activities: result[1],
+            delivery: result[2],
+            invoices: result[3]
         });
     })
     .catch(err => {
@@ -334,6 +426,232 @@ exports.getDetailSales = (req, res) => {
     });
 }
 
+exports.editSales = (req, res) => {
+    const salesId = mongoose.Types.ObjectId(req.params.salesId);
+    const additionalCharges =  AdditionalCharges.find({status: true}).sort({name: '1'}).lean()
+    const taxCodes =  TaxCode.find().sort({code: '1'}).lean();
+    const sales = Sales.aggregate([
+        {$match: {_id: salesId}},
+        {$lookup: {
+            from: 'customers',
+            localField: 'billTo',
+            foreignField: '_id',
+            pipeline: [
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$parentId',
+                    connectFromField: 'parentId',
+                    connectToField: '_id',
+                    as: 'parents'
+                }},
+                {$unwind: {
+                    path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                }},
+                {$sort: {'parents._id': 1}},
+                {
+                    $group: {
+                        _id: "$_id",
+                        parents: { $push: "$parents" },
+                        parName: {$first: '$parents'},
+                        root: { $first: "$$ROOT" }
+                    }
+                },
+                {$project: {
+                    parents: '$parents',
+                    address: '$root.address',
+                    displayName: {$cond: {
+                        if: {$ifNull: ['$parName.name', false]},
+                        then: {$concat: ['$parName.name', ', ', '$root.name']},
+                        else: '$root.name'
+                    }}
+                }},
+            ],
+            as: 'billTo'
+        }},
+        {$unwind: '$billTo'},
+        {$lookup: {
+            from: 'customers',
+            localField: 'shipTo',
+            foreignField: '_id',
+            pipeline: [
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$parentId',
+                    connectFromField: 'parentId',
+                    connectToField: '_id',
+                    as: 'parents'
+                }},
+                {$unwind: {
+                    path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                }},
+                {$sort: {'parents._id': 1}},
+                {
+                    $group: {
+                        _id: "$_id",
+                        parents: { $push: "$parents" },
+                        parName: {$first: '$parents'},
+                        root: { $first: "$$ROOT" }
+                    }
+                },
+                {$project: {
+                    parents: '$parents',
+                    address: '$root.address',
+                    displayName: {$cond: {
+                        if: {$ifNull: ['$parName.name', false]},
+                        then: {$concat: ['$parName.name', ', ', '$root.name']},
+                        else: '$root.name'
+                    }}
+                }},
+            ],
+            as: 'shipTo'
+        }},
+        {$unwind: '$shipTo'},
+        {$unwind: '$items'},
+        {$lookup: {
+            from: 'products',
+            localField: 'items.productId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    _id: 0,
+                    name: 1,
+                    stock: 1
+                }},
+            ],
+            as: 'items.product'
+        }},
+        {$unwind: '$items.product'},
+        {$addFields: {
+            'items.name': '$items.product.name',
+            'items.stock': '$items.product.stock'
+        }},
+        {$unset: 'items.product'},
+        {$group: {
+            _id: '$_id',
+            items: {$push: '$items'},
+            root: {$first: '$$ROOT'}
+        }},
+        {$project: {
+            'root.items' : 0,
+        }},
+        {$replaceRoot: {
+            newRoot: {
+                $mergeObjects: [
+                    { items: "$items" },
+                    "$root"
+                ]
+            }
+        }}
+    ])
+    const activities = Activity.aggregate([
+        {$match: {documentId: salesId}},
+        {$lookup: {
+            from: 'users',
+            localField: 'userId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    _id: 1,
+                    name: 1
+                }}
+            ],
+            as: 'userId'
+        }},
+        {$unwind: '$userId'},
+        {$unwind: '$original.items'},
+        {$lookup: {
+            from: 'products',
+            localField: 'original.items.productId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    _id: 0,
+                    name: 1
+                }},
+            ],
+            as: 'original.items.product'
+        }},
+        {$unwind: '$original.items.product'},
+        {$addFields: {
+            'original.items.name': '$original.items.product.name'
+        }},
+        {$unset: 'original.items.product'},
+        {$group: {
+            _id:'$_id',
+            original: {$push: '$original.items'},
+            root: {$first: '$$ROOT'}
+        }},
+        {$project: {
+            'root.original.items' : 0,
+        }},
+        {$addFields: {
+            'root.original.items': '$original'
+        }},
+        {$replaceRoot: {
+            newRoot: '$root'
+        }},
+        {$unwind: '$updated.items'},
+        {$lookup: {
+            from: 'products',
+            localField: 'updated.items.productId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    _id: 0,
+                    name: 1
+                }},
+            ],
+            as: 'updated.items.product'
+        }},
+        {$unwind: '$updated.items.product'},
+        {$addFields: {
+            'updated.items.name': '$updated.items.product.name'
+        }},
+        {$unset: 'updated.items.product'},
+        {$group: {
+            _id:'$_id',
+            updated: {$push: '$updated.items'},
+            root: {$first: '$$ROOT'}
+        }},
+        {$project: {
+            'root.updated.items' : 0,
+        }},
+        {$addFields: {
+            'root.updated.items': '$updated'
+        }},
+        {$replaceRoot: {
+            newRoot: '$root'
+        }},
+        {$sort: {createdAt: -1}}
+    ])
+    const delivery = Deliveries.find({salesId: salesId})
+    const invoices = Invoices.find({salesId: salesId})
+    Promise.all([
+        additionalCharges,
+        taxCodes,
+        sales,
+        activities,
+        delivery,
+        invoices
+    ])
+    .then((result) => {
+        res.status(200).json({
+            additionalCharges: result[0].map(obj => {
+                obj.id = obj._id,
+                obj.text = obj.name
+                return obj
+            }),
+            taxCodes: result[1],
+            sales: result[2][0],
+            activities: result[3],
+            delivery: result[4],
+            invoices: result[5]
+        })
+    })
+
+};
 exports.updateSales = async (req, res) => {
     const salesId = req.params.salesId;
     const original = await Sales.findById(salesId).lean()
@@ -349,7 +667,9 @@ exports.updateSales = async (req, res) => {
             if(invoiced.length > 0) {
                 sales.invoiceStatus = 'To Invoice'
             }
-            sales.customerId = req.body.customerId
+            sales.customerId = req.body.billTo
+            sales.billTo = req.body.billTo
+            sales.shipTo = req.body.shipTo
             sales.customerPO = req.body.customerPO
             sales.remarks = req.body.remarks
             sales.tags = req.body.tags

@@ -15,6 +15,7 @@ exports.postBank = (req , res) => {
         name: req.body.name,
         accountNumber: req.body.accountNumber,
         accountName: req.body.accountName,
+        kcp: req.body.kcp,
         icon: req.body.icon
     });
     bank.save()
@@ -32,6 +33,7 @@ exports.putBank = (req, res) => {
         bank.name = req.body.name;
         bank.accountNumber = req.body.accountNumber;
         bank.accountName = req.body.accountName;
+        bank.kcp = req.body.kcp
         bank.icon = req.body.icon
         return bank.save();
     })

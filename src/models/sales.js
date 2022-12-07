@@ -3,9 +3,12 @@ const Schema = mongoose.Schema;
 
 const SalesSchmea = new Schema({
     customerId: {type: Schema.Types.ObjectId, ref: 'Customer', required: true},
+    shipTo: {type: Schema.Types.ObjectId, required: true},
+    billTo: {type: Schema.Types.ObjectId, required: true},
     salesNo: {type: String},
     salesCreated: {type: Date},
     quotationNo: {type: String},
+    customerReference: {type: String},
     customerPO: {type: String},
     remarks: {type: Object},
     tags: {type: Array},

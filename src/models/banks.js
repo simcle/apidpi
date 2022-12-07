@@ -5,6 +5,7 @@ const BankSchema = new Schema({
     name: {type: String},
     accountNumber: {type: String},
     accountName: {type: String},
+    kcp: {type: String},
     icon: {type: String}
 }, {
     timestamps: true
