@@ -222,6 +222,8 @@ exports.insertPos = async (req, res) => {
             invoiceNo: invoiceNo,
             salesId: result._id,
             customerId: result.customerId,
+            billTo: result.customerId,
+            shipTo: result.customerId,
             dueDate: new Date(),
             confirmDate: new Date(),
             paymentStatus: 'Paid',
