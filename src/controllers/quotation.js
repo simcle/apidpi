@@ -158,6 +158,18 @@ exports.getDetailQotation = (req, res) => {
     const quotationId = mongoose.Types.ObjectId(req.params.quotationId);
     const quotation = Sales.aggregate([
         {$match: {_id: quotationId}},
+        {$lookup : {
+            from: 'users',
+            localField: 'userId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    name: 1
+                }}
+            ],
+            as: 'user'
+        }},
+        {$unwind: '$user'},
         {$lookup: {
             from: 'customers',
             localField: 'customerId',
@@ -174,17 +186,6 @@ exports.getDetailQotation = (req, res) => {
                     path: '$parents',
                     preserveNullAndEmptyArrays: true
                 }},
-                {$graphLookup: {
-                    from: 'customers',
-                    startWith: '$_id',
-                    connectFromField: '_id',
-                    connectToField: 'parentId',
-                    as: 'attn'
-                }},
-                {$unwind: {
-                    path: '$attn',
-                    preserveNullAndEmptyArrays: true
-                }},
                 {$sort: {'parents._id': 1}},
                 {
                     $group: {
@@ -196,11 +197,8 @@ exports.getDetailQotation = (req, res) => {
                 },
                 {
                     $project: {
-                        parent: '$parents.name',
-                        attn: '$attn.name',
-                        name: '$root.name',
-                        address: '$root.address',
-                        contact: '$root.contact',
+                        parent: '$parents',
+                        attn: '$root',
                         displayName: {
                             $cond: {
                                 if: {$ifNull: ['$parents.name', false]},

@@ -159,6 +159,18 @@ exports.getSales = (req, res) => {
 exports.getDetailSales = (req, res) => {
     const salesId = mongoose.Types.ObjectId(req.params.salesId);
     const quotation = Sales.aggregate([
+        {$lookup: {
+            from: 'users',
+            localField: 'userId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    name: 1
+                }}
+            ],
+            as: 'user'
+        }},
+        {$unwind: '$user'},
         {$match: {_id: salesId}},
         {$lookup: {
             from: 'customers',
@@ -691,6 +703,12 @@ exports.updateSales = async (req, res) => {
     })
     .then(async (result) => {
         activity('update','Sales Orders', result.customerId, result._id, result.salesNo, req.user._id, original, result)
+        const invoice = Invoices.findOne({salesId: result._id})
+        .then(async (result) => {
+            result.shipTo = req.body.shipTo
+            result.billTo = req.body.billTo
+            await result.save()
+        })
         const items = result.items
         items.map(obj => {
             if(obj.delivered > 0) {
@@ -713,7 +731,6 @@ exports.updateSales = async (req, res) => {
         res.status(200).json(result)
     })
     .catch(err => {
-        console.log(err);
         res.status(400).send(err)
     })
 };

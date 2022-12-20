@@ -274,13 +274,11 @@ exports.getDetailInvoice = (req, res) => {
                 },
                 {
                     $project: {
-                        address: '$root.address',
-                        contact: '$root.contact',
                         customer: {
                             $cond: {
                                 if: {$ifNull: ['$parents.name', false]},
-                                then: '$parents.name',
-                                else: '$root.name'
+                                then: '$parents',
+                                else: '$root'
                             }
                         },
                         displayName: {
@@ -341,13 +339,11 @@ exports.getDetailInvoice = (req, res) => {
                 },
                 {
                     $project: {
-                        address: '$root.address',
-                        contact: '$root.contact',
                         customer: {
                             $cond: {
                                 if: {$ifNull: ['$parents.name', false]},
-                                then: '$parents.name',
-                                else: '$root.name'
+                                then: '$parents',
+                                else: '$root'
                             }
                         },
                         displayName: {

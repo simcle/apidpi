@@ -377,16 +377,18 @@ exports.putProduct = async (req, res) => {
                 fs.unlinkSync(`public/img/products/200/${img}`)
             }
         }
-        for await (const image of images) {
-            let filePath = `./public/img/products/700/${image.filename}`;
-            let filePathSmall = `./public/img/products/200/${image.filename}`;
-            await sharp(image.path)
-            .resize({height: 700})
-            .toFile(filePath);
-            await sharp(image.path)
-            .resize({height: 200})
-            .toFile(filePathSmall)
-            imagesList.push(image.filename)
+        if(images) {
+            for await (const image of images) {
+                let filePath = `./public/img/products/700/${image.filename}`;
+                let filePathSmall = `./public/img/products/200/${image.filename}`;
+                await sharp(image.path)
+                .resize({height: 700})
+                .toFile(filePath);
+                await sharp(image.path)
+                .resize({height: 200})
+                .toFile(filePathSmall)
+                imagesList.push(image.filename)
+            }
         }
         if(attachments) {
             for(const file of attachments) {
@@ -425,6 +427,7 @@ exports.putProduct = async (req, res) => {
         res.status(200).json(result);
     })
     .catch(err => {
+        console.log(err);
         res.status(400).send(err)
     });
 };

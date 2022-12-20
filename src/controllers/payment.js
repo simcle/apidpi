@@ -25,7 +25,7 @@ exports.createPayment = (req, res) => {
             if(result.amount < invoice.amountDue) {
                 invoice.paymentStatus = 'Partial'
             } else {
-                if(result.journal == 'Cash') {
+                if(result.journal == 'Cash' || result.journal == 'Debit') {
                     invoice.paymentStatus = 'Paid'
                 } else {
                     invoice.paymentStatus = 'In Payment'
