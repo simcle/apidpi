@@ -236,7 +236,7 @@ exports.insertPos = async (req, res) => {
             totalAdditionalCharges: 0,
             shipping: req.body.shipping.shipmentMethodId ? req.body.shipping:'',
             grandTotal: result.grandTotal,
-            amountDue: result.grandTotal,
+            amountDue: 0,
             userID: req.user._id
         })
         return invoice.save()

@@ -1,9 +1,11 @@
 const mongoose = require('mongoose');
 const Payments = require('../models/payment');
 const Invoices = require('../models/invoice');
+const Sales = require('../models/sales');
 
 exports.createPayment = (req, res) => {
     let bankId;
+    let pay;
     if(req.body.bankId) {
         bankId = req.body.bankId
     } else {
@@ -20,6 +22,7 @@ exports.createPayment = (req, res) => {
     })
     payment.save()
     .then(result => {
+        pay = result
         Invoices.findById(result.invoiceId)
         .then(invoice => {
             if(result.amount < invoice.amountDue) {
@@ -35,7 +38,14 @@ exports.createPayment = (req, res) => {
             return invoice.save()
         })
         .then(result => {
-            res.status(200).json(result)
+            Sales.findById(result.salesId)
+            .then(sales => {
+                sales.payments.push(pay)
+                return sales.save()
+            })
+            .then(result => {
+                res.status(200).json(result)
+            })
         })
         .catch(err => {
             res.status(400).send(err)

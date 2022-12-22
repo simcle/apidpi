@@ -191,7 +191,6 @@ exports.getDetailQotation = (req, res) => {
                     $group: {
                         _id: "$_id",
                         parents: { $first: "$parents" },
-                        attn: {$first: "$attn"},
                         root: { $first: "$$ROOT" }
                     }
                 },

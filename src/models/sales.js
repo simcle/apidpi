@@ -57,7 +57,19 @@ const SalesSchmea = new Schema({
             date: {type: Date},
             amount: {type: Number},
             total: {type: Number},
-            status: {type: String}
+            status: {type: String},
+            paymentDate: {type: Date}
+        }
+    ],
+    payments: [
+        {
+            journal: {type: String},
+            invoiceId: {type: Schema.Types.ObjectId, ref: 'invoices'},
+            customerId: {type: Schema.Types.ObjectId, ref: 'customers'},
+            paymentDate: {type: Date},
+            amount: {type: Number},
+            bankId: {type: Schema.Types.ObjectId, ref: 'banks'},
+            userId: {type: Schema.Types.ObjectId, ref: 'users'}
         }
     ],
     totalQty: {type: Number},

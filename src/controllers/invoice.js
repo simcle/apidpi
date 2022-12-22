@@ -154,12 +154,7 @@ exports.getInvoive = (req, res) => {
 }
 
 exports.createInvoice = async (req, res) => {
-    const inv =  await Invoices.find({$and:[{salesId: req.body._id}, {type: 'Regular'} ]}).select('grandTotal')
-    let total = 0
-    for(let i=0; i < inv.length; i++) {
-        total += inv[i].grandTotal
-    }
-    const grandTotal = req.body.grandTotal - total
+    const grandTotal = req.body.grandTotal
 
     const items = req.body.items.map(obj => {
         obj.qty = obj.qty - obj.invoiced
@@ -205,9 +200,15 @@ exports.createInvoice = async (req, res) => {
             paymentStatus: 'Not Paid',
             status: 'Draft',
             type: req.body.type,
-            items: req.body.items,
-            downPayments: req.body.downPayments,
-            grandTotal: req.body.downPayments[0].amount,
+            items: items,
+            downPayments: downPayments,
+            total: req.body.total,
+            additionalCharges: req.body.additionalCharges,
+            totalAdditionalCharges: req.body.totalAdditionalCharges,
+            discount: req.body.discount,
+            tax: req.body.tax,
+            shipping: req.body.shipping,
+            grandTotal: grandTotal,
             amountDue: req.body.downPayments[0].amount,
             offerConditions: req.body.offerConditions,
             userID: req.user._id
@@ -373,7 +374,8 @@ exports.getDetailInvoice = (req, res) => {
             pipeline: [
                 {$project: {
                     salesNo: 1,
-                    customerPO: 1
+                    customerPO: 1,
+                    payments: 1
                 }}
             ],
             as: 'sales'
@@ -405,7 +407,8 @@ exports.getDetailInvoice = (req, res) => {
                     else: '$pos.posNo'
                 }
             },
-            customerPO: '$sales.customerPO'
+            customerPO: '$sales.customerPO',
+            payments: '$sales.payments'
         }},
         {$lookup: {
             from: 'banks',
