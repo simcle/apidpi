@@ -691,6 +691,8 @@ exports.updateSales = async (req, res) => {
             sales.items = items
             if(req.body.shipping.shipmentMethodId) {
                 sales.shipping = req.body.shipping
+            } else {
+                sales.shipping = undefined
             }
             sales.totalQty = req.body.totalQty
             sales.total = req.body.total
@@ -705,9 +707,17 @@ exports.updateSales = async (req, res) => {
         activity('update','Sales Orders', result.customerId, result._id, result.salesNo, req.user._id, original, result)
         const invoice = Invoices.findOne({salesId: result._id})
         .then(async (result) => {
-            result.shipTo = req.body.shipTo
-            result.billTo = req.body.billTo
-            await result.save()
+            if(result) {
+                result.shipTo = req.body.shipTo
+                result.billTo = req.body.billTo
+                result.amountDue = req.body.grandTotal
+                if(req.body.shipping.shipmentMethodId) {
+                    result.shipping = req.body.shipping
+                } else {
+                    result.shipping = undefined
+                }
+                await result.save()
+            }
         })
         const items = result.items
         items.map(obj => {

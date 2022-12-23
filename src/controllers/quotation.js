@@ -718,6 +718,8 @@ exports.putQuotation = async (req, res) => {
             quotation.items = req.body.items
             if(req.body.shipping.shipmentMethodId) {
                 quotation.shipping = req.body.shipping
+            } else {
+                quotation.shipping = undefined
             }
             quotation.totalQty = req.body.totalQty
             quotation.total = req.body.total
