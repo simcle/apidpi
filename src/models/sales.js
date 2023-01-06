@@ -15,6 +15,7 @@ const SalesSchmea = new Schema({
     estimatedDeliveryTime: {type: String},
     dateValidaty: {type: Date},
     creditTermId: {type: Schema.Types.ObjectId, ref: 'CreditTerm'},
+    paymentTermId: {type: Schema.Types.ObjectId, ref: 'PaymentTerm'},
     shipmentTermId: {type: Schema.Types.ObjectId, ref: 'ShipmentTerm'},
     shipping: {
         shipmentMethodId: {type: Schema.Types.ObjectId, ref: 'Shippings'},

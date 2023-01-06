@@ -173,6 +173,7 @@ exports.createInvoice = async (req, res) => {
             dueDate: new Date(),
             confirmDate: new Date(),
             paymentStatus: 'Not Paid',
+            paymentTermId: req.body.paymentTerm._id,
             status: 'Draft',
             type: req.body.type,
             items: items,
@@ -198,6 +199,7 @@ exports.createInvoice = async (req, res) => {
             dueDate: new Date(),
             confirmDate: new Date(),
             paymentStatus: 'Not Paid',
+            paymentTermId: req.body.paymentTerm._id,
             status: 'Draft',
             type: req.body.type,
             items: items,
@@ -249,6 +251,18 @@ exports.getDetailInvoice = (req, res) => {
     const invoiceId = mongoose.Types.ObjectId(req.params.invoiceId);
     const invoice = Invoices.aggregate([
         {$match: {_id: invoiceId}},
+        {$lookup: {
+            from: 'users',
+            localField: 'userId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    name: 1
+                }}
+            ],
+            as: 'user'
+        }},
+        {$unwind: '$user'},
         {$lookup: {
             from: 'customers',
             localField: 'billTo',
@@ -411,6 +425,16 @@ exports.getDetailInvoice = (req, res) => {
             payments: '$sales.payments'
         }},
         {$lookup: {
+            from: 'paymentterms',
+            localField: 'paymentTermId',
+            foreignField: '_id',
+            as: 'paymentTerm'
+        }},
+        {$unwind: {
+            path: '$paymentTerm',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
             from: 'banks',
             localField: 'bankId',
             foreignField: '_id',
@@ -457,7 +481,19 @@ exports.getDetailInvoice = (req, res) => {
             }
         }}
     ])
-    const payments = Payments.find({invoiceId: invoiceId})
+    const payments = Payments.aggregate([
+        {$match: {invoiceId: invoiceId}},
+        {$lookup: {
+            from: 'banks',
+            localField: 'bankId',
+            foreignField: '_id',
+            as: 'bank'
+        }},
+        {$unwind: {
+            path: '$bank',
+            preserveNullAndEmptyArrays: true
+        }}
+    ])
     Promise.all([
         invoice,
         payments

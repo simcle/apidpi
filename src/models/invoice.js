@@ -10,6 +10,7 @@ const InvoiceSchema = new Schema({
     dueDate: {type: Date},
     confirmDate: {type: Date},
     paymentStatus: {type: String},
+    paymentTermId: {type: Schema.Types.ObjectId},
     status: {type: String},
     type: {type: String},
     items: [{

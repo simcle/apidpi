@@ -3,8 +3,8 @@ const Schema = mongoose.Schema;
 
 const PaymentTermSchema = new Schema({
     code: {type: String},
-    description: {type: String},
-    days: {type: Number, default: null}
+    duration: {type: Number, default: null},
+    description: {type: String}
 }, {
     timestamps: true
 });

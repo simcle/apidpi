@@ -13,6 +13,7 @@ const Task = require('../models/tasks');
 const activity = require('../modules/activityHistory');
 const Deliveries = require('../models/delivery');
 const moduleDelivery = require('../modules/delivery');
+const PaymentTerm = require('../models/paymentTerm');
 
 exports.getSales = (req, res) => {
     const currentPage = req.query.page || 1;
@@ -299,6 +300,17 @@ exports.getDetailSales = (req, res) => {
             path: '$shipVia',
             preserveNullAndEmptyArrays: true
         }},
+        {$lookup: {
+            from: 'paymentterms',
+            foreignField: '_id',
+            localField: 'paymentTermId',
+            as: 'paymentTerm'
+        }},
+        {$unwind: {
+
+            path: '$paymentTerm',
+            preserveNullAndEmptyArrays: true
+        }},
         {$unwind: '$items'},
         {$lookup: {
             from: 'products',
@@ -440,7 +452,8 @@ exports.getDetailSales = (req, res) => {
 
 exports.editSales = (req, res) => {
     const salesId = mongoose.Types.ObjectId(req.params.salesId);
-    const additionalCharges =  AdditionalCharges.find({status: true}).sort({name: '1'}).lean()
+    const paymentTerms = PaymentTerm.find().lean();
+    const additionalCharges =  AdditionalCharges.find({status: true}).sort({name: '1'}).lean();
     const taxCodes =  TaxCode.find().sort({code: '1'}).lean();
     const sales = Sales.aggregate([
         {$match: {_id: salesId}},
@@ -646,7 +659,8 @@ exports.editSales = (req, res) => {
         sales,
         activities,
         delivery,
-        invoices
+        invoices,
+        paymentTerms
     ])
     .then((result) => {
         res.status(200).json({
@@ -659,7 +673,12 @@ exports.editSales = (req, res) => {
             sales: result[2][0],
             activities: result[3],
             delivery: result[4],
-            invoices: result[5]
+            invoices: result[5],
+            paymentTerms: result[6].map(obj => {
+                obj.id = obj._id,
+                obj.text = obj.code
+                return obj
+            })
         })
     })
 
@@ -688,6 +707,9 @@ exports.updateSales = async (req, res) => {
             sales.estimatedDeliveryTime = req.body.estimatedDeliveryTime
             sales.dateValidaty = req.body.dateValidaty
             sales.additionalCharges = req.body.additionalCharges
+            if(req.body.paymentTermId) {
+                sales.paymentTermId = req.body.paymentTermId
+            }
             sales.items = items
             if(req.body.shipping.shipmentMethodId) {
                 sales.shipping = req.body.shipping
@@ -704,6 +726,7 @@ exports.updateSales = async (req, res) => {
         return sales.save()
     })
     .then(async (result) => {
+        console.log(result);
         activity('update','Sales Orders', result.customerId, result._id, result.salesNo, req.user._id, original, result)
         const invoice = Invoices.findOne({salesId: result._id})
         .then(async (result) => {
@@ -711,6 +734,9 @@ exports.updateSales = async (req, res) => {
                 result.shipTo = req.body.shipTo
                 result.billTo = req.body.billTo
                 result.amountDue = req.body.grandTotal
+                if(req.body.paymentTermId) {
+                    result.paymentTermId = req.body.paymentTermId
+                }
                 if(req.body.shipping.shipmentMethodId) {
                     result.shipping = req.body.shipping
                 } else {

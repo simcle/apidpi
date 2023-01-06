@@ -86,6 +86,7 @@ exports.putCurrency = (req, res) => {
 exports.postPaymentTerm = (req, res) => {
     const paymentTerm = new PaymentTerm({
         code: req.body.code,
+        duration: req.body.duration,
         description: req.body.description
     })
     paymentTerm.save()
@@ -104,6 +105,7 @@ exports.putPaymentTerm = (req, res) => {
     PaymentTerm.findById(req.params.paymentTermId)
     .then(payment => {
         payment.code = req.body.code;
+        payment.duration = req.body.duration;
         payment.description = req.body.description;
         return payment.save()
     })
