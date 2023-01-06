@@ -262,7 +262,10 @@ exports.getDetailInvoice = (req, res) => {
             ],
             as: 'user'
         }},
-        {$unwind: '$user'},
+        {$unwind: {
+            path: '$user',
+            preserveNullAndEmptyArrays: true
+        }},
         {$lookup: {
             from: 'customers',
             localField: 'billTo',
