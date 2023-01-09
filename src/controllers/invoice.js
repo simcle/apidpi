@@ -559,6 +559,9 @@ exports.updateInvoice = async (req, res) => {
     Invoices.findById(invoiceId)
     .then(inv => {
         inv.bankId = req.body.bankId
+        inv.items = req.body.items
+        inv.total = req.body.total
+        inv.grandTotal = req.body.grandTotal
         return inv.save()
     })
     .then (() => {
@@ -566,29 +569,44 @@ exports.updateInvoice = async (req, res) => {
     })
 }
 
-exports.deleteInvoice = async (req, res) => {
+exports.cancelledInvoice = async (req, res) => {
     const invoiceId = req.params.invoiceId
     const salesId = req.query.salesId
     const downPaymentId = req.query.downPaymentId
     const items = req.body.items
-    await Invoices.findByIdAndDelete(invoiceId)
-    Sales.findById(salesId)
-    .then(sale => {
-        let dp = sale.downPayments.findIndex(obj => obj._id == downPaymentId)
-        for (let i=0; i < items.length; i++) {
-            for(let s=0; s < sale.items.length; s++) {
-                if(items[i].idx == sale.items[s].idx) {
-                    if(items[i].qty > 0) {
-                        sale.items[s].invoiced = sale.items[s].invoiced - items[i].qty
+    let invoice;
+    await Invoices.findById(invoiceId)
+    .then(result => {
+        invoice = result
+        result.status = 'Cancelled'
+       return result.save()
+    })
+    .then(async () => {
+        const invoices = await Invoices.find({$and: [{salesId: salesId}, {status: {$ne: 'Cancelled'}}]})
+        Sales.findById(salesId)
+        .then(sale => {
+            let dp = sale.downPayments.findIndex(obj => obj._id == downPaymentId)
+            for (let i=0; i < items.length; i++) {
+                for(let s=0; s < sale.items.length; s++) {
+                    if(items[i].idx == sale.items[s].idx) {
+                        if(items[i].qty > 0 && invoice.type == 'Regular') {
+                            sale.items[s].invoiced = sale.items[s].invoiced - items[i].qty
+                        }
                     }
                 }
             }
-        }
-        sale.invoiceStatus = 'Nothing to Invoice'
-        sale.downPayments.splice(dp, 1)
-        return sale.save()
-    })
-    .then(result => {
-        res.status(200).json(result)
+            if(invoices.length == 0) {
+                sale.invoiceStatus = 'Nothing to Invoice'
+            } else {
+                sale.invoiceStatus = 'To Invoice'
+            }
+            if(invoice.type != 'Regular') {
+                sale.downPayments.splice(dp, 1)
+            }
+            return sale.save()
+        })
+        .then(result => {
+            res.status(200).json(result)
+        })
     })
 }
