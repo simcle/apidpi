@@ -303,7 +303,6 @@ exports.validateReceive = (req, res) => {
                         serial.documentIn.push({documentId: documentId, documentNo: documentNo, documentName: documentName})
                         await serial.save()
                     } else {
-                        console.log(sn)
                         const newSerial = new SerialNumbers({
                             productId: item.productId,
                             serialNumber: sn.sn,

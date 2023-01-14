@@ -726,7 +726,6 @@ exports.updateSales = async (req, res) => {
         return sales.save()
     })
     .then(async (result) => {
-        console.log(result);
         activity('update','Sales Orders', result.customerId, result._id, result.salesNo, req.user._id, original, result)
         const invoice = Invoices.findOne({salesId: result._id})
         .then(async (result) => {
