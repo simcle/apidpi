@@ -33,6 +33,7 @@ module.exports = async (sales, userId) => {
         deliveryNo: newID,
         salesId: sales._id,
         customerId: sales.customerId,
+        shipTo: sales.shipTo,
         warehouseId: warehouse._id,
         scheduled: new Date(),
         items: sales.items,

@@ -266,6 +266,13 @@ exports.getDetailDelivery = async (req, res) => {
             ],
             as: 'customer'
         }},
+        {$lookup: {
+            from: 'customers',
+            localField: 'shipTo',
+            foreignField: '_id',
+            as: 'shipTo'
+        }},
+        {$unwind: '$shipTo'},
         {$unwind: '$customer'},
         {$lookup: {
             from: 'shippings',
@@ -399,13 +406,40 @@ exports.updateDelivery = (req, res) => {
 }
 
 exports.validateDelivery = (req, res) => {
+    const date = new Date();
+    let dd = date.getDate();
+    let mm = date.getMonth() +1;
+    let yy = date.getFullYear().toString().substring(2);
+    dd = checkTime(dd);
+    mm = checkTime(mm)
+
+    function checkTime (i) {
+        if(i < 10) {
+            i = `0${i}`
+        }
+        return i
+    }
+
+    let today = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+
     const deliveryId = req.params.deliveryId
     const items = req.body
     let delivered;
     Delivery.findById(deliveryId)
-    .then(delivery => {
+    .then(async (delivery) => {
+        let suratJalan = await Delivery.findOne({$and: [{status: 'Delivery'}, {valiDate: {$gte: today}}]}).sort({valiDate: -1})
+        let newID
+        if(suratJalan && suratJalan.suratJalanNo) {
+            const no = suratJalan.suratJalanNo.substring(15)
+            const newNo = parseInt(no)+1
+            newID = `${dd}${mm}/DPI/SJ/${yy}/${newNo}`
+        } else {
+            newID = `${dd}${mm}/DPI/SJ/${yy}/1`
+        }
+        delivery.suratJalanNo = newID
         delivery.status = 'Delivery'
         delivery.items = items
+        delivery.valiDate = new Date()
         return delivery.save()
     })
     .then(delivery => {

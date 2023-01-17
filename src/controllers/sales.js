@@ -757,6 +757,7 @@ exports.updateSales = async (req, res) => {
         if(delivery) {
             delivery.items = deliveryItems
             delivery.shipping = result.shipping
+            delivery.shipTo = req.body.shipTo
             await delivery.save()
         } else {
             if(deliveryItems.length > 0) {
