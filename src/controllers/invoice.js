@@ -357,27 +357,18 @@ exports.getDetailInvoice = (req, res) => {
                 },
                 {
                     $project: {
-                        customer: {
-                            $cond: {
-                                if: {$ifNull: ['$parents.name', false]},
-                                then: '$parents',
-                                else: '$root'
-                            }
-                        },
+                        parent: '$parents.name',
+                        attn: '$attn.name',
+                        name: '$root.name',
+                        address: '$root.address',
+                        contact: '$root.contact',
                         displayName: {
                             $cond: {
                                 if: {$ifNull: ['$parents.name', false]},
                                 then: {$concat: ['$parents.name', ', ', '$root.name']},
                                 else: '$root.name'
                             }
-                        },
-                        attn: {
-                            $cond: {
-                                if: {$ifNull: ['$parents.name', false]},
-                                then: '$root.name',
-                                else: ''
-                            }
-                        },
+                        }
                     }
                 },
             ],
