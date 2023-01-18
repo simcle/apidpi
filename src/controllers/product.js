@@ -293,6 +293,7 @@ exports.postProduct = (req, res) => {
                 attachments: attachmentLists,
                 name: req.body.name,
                 brandId: req.body.brandId,
+                model: req.body.model,
                 categoriesId: JSON.parse(req.body.categoriesId),
                 condition: req.body.condition,
                 description: req.body.description,
@@ -395,10 +396,12 @@ exports.putProduct = async (req, res) => {
                 attachmentLists.push(file.path)
             }
         }
+        console.log(req.body.model);
         product.images = imagesList
         product.attachments = attachmentLists
         product.name = req.body.name
-        product.brandId = req.body.brandId,
+        product.brandId = req.body.brandId
+        product.model = req.body.model
         product.categoriesId = JSON.parse(req.body.categoriesId)
         product.condition = req.body.condition
         product.description = req.body.description

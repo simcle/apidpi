@@ -6,6 +6,7 @@ const DeliverySchema = new Schema({
     suratJalanNo: {type: String},
     salesId: {type: Schema.Types.ObjectId, ref: 'Sales'},
     customerId: {type: Schema.Types.ObjectId, ref: 'Customer'},
+    customerPO: {type: String},
     warehouseId: {type: Schema.Types.ObjectId, ref: 'Warehouse'},
     shipTo: {type: Schema.Types.ObjectId},
     scheduled: {type: Date},

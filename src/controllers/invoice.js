@@ -376,6 +376,21 @@ exports.getDetailInvoice = (req, res) => {
         }},
         {$unwind: '$shipTo'},
         {$lookup: {
+            from: 'shippings',
+            foreignField: '_id',
+            localField: 'shipping.shipmentMethodId',
+            pipeline: [
+                {$project: {
+                    name: 1,
+                }}
+            ],
+            as: 'shipVia'
+        }},
+        {$unwind: {
+            path: '$shipVia',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
             from: 'sales',
             localField: 'salesId',
             foreignField: '_id',

@@ -118,6 +118,21 @@ exports.getPos = (req, res) => {
                 as: 'customer'
             }},
             {$unwind: '$customer'},
+            {$lookup: {
+                from: 'invoices',
+                localField: '_id',
+                foreignField: 'salesId',
+                pipeline: [
+                    {$project: {
+                        _id: 1
+                    }}
+                ],
+                as: 'invoiceId'
+            }},
+            {$unwind: {
+                path: '$invoiceId',
+                preserveNullAndEmptyArrays: true
+            }},
             {$addFields: {
                 'customer': '$customer.displayName'
             }},

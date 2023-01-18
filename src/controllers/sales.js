@@ -756,6 +756,7 @@ exports.updateSales = async (req, res) => {
         const delivery = await Deliveries.findOne({$and: [{salesId: salesId}, {status: 'Ready'}]})
         if(delivery) {
             delivery.items = deliveryItems
+            delivery.customerPO = req.body.customerPO
             delivery.shipping = result.shipping
             delivery.shipTo = req.body.shipTo
             await delivery.save()
