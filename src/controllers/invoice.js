@@ -462,17 +462,29 @@ exports.getDetailInvoice = (req, res) => {
                 {$project: {
                     _id: 0,
                     name: 1,
-                    stock: 1
+                    stock: 1,
+                    model: 1,
+                    brandId: 1
                 }},
             ],
             as: 'items.product'
         }},
+        {$lookup: {
+            from: 'brands',
+            localField: 'items.product.brandId',
+            foreignField: '_id',
+            as: 'items.brands'
+        }},
+        {$unwind: '$items.brands'},
         {$unwind: '$items.product'},
         {$addFields: {
             'items.name': '$items.product.name',
+            'items.model': '$items.product.model',
+            'items.brand': '$items.brands.name',
             'items.stock': '$items.product.stock'
         }},
         {$unset: 'items.product'},
+        {$unset: 'items.brands'},
         {$group: {
             _id: '$_id',
             items: {$push: '$items'},
@@ -488,7 +500,7 @@ exports.getDetailInvoice = (req, res) => {
                     "$root"
                 ]
             }
-        }}
+        }},
     ])
     const payments = Payments.aggregate([
         {$match: {invoiceId: invoiceId}},
