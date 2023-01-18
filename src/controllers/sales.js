@@ -795,7 +795,7 @@ exports.updateSales = async (req, res) => {
         let deliveryItems = items.filter(obj => obj.qty > 0)
         const delivery = await Deliveries.findOne({$and: [{salesId: salesId}]})
         if(delivery) {
-            delivery.items = deliveryItems
+            delivery.items = req.body.items
             delivery.customerPO = req.body.customerPO
             delivery.shipping = result.shipping
             delivery.shipTo = req.body.shipTo
