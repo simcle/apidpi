@@ -351,6 +351,26 @@ exports.getDetailSales = (req, res) => {
     const activities = Activity.aggregate([
         {$match: {documentId: salesId}},
         {$lookup: {
+            from: 'shippings',
+            localField: 'original.shipping.shipmentMethodId',
+            foreignField: '_id',
+            as: 'original.shipping.name'
+        }},
+        {$unwind: {
+            path: '$original.shipping.name',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
+            from: 'shippings',
+            localField: 'updated.shipping.shipmentMethodId',
+            foreignField: '_id',
+            as: 'updated.shipping.name'
+        }},
+        {$unwind: {
+            path: '$updated.shipping.name',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
             from: 'users',
             localField: 'userId',
             foreignField: '_id',
@@ -573,6 +593,26 @@ exports.editSales = (req, res) => {
     const activities = Activity.aggregate([
         {$match: {documentId: salesId}},
         {$lookup: {
+            from: 'shippings',
+            localField: 'original.shipping.shipmentMethodId',
+            foreignField: '_id',
+            as: 'original.shipping.name'
+        }},
+        {$unwind: {
+            path: '$original.shipping.name',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
+            from: 'shippings',
+            localField: 'updated.shipping.shipmentMethodId',
+            foreignField: '_id',
+            as: 'updated.shipping.name'
+        }},
+        {$unwind: {
+            path: '$updated.shipping.name',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
             from: 'users',
             localField: 'userId',
             foreignField: '_id',
@@ -753,7 +793,7 @@ exports.updateSales = async (req, res) => {
         })
         result.items = items
         let deliveryItems = items.filter(obj => obj.qty > 0)
-        const delivery = await Deliveries.findOne({$and: [{salesId: salesId}, {status: 'Ready'}]})
+        const delivery = await Deliveries.findOne({$and: [{salesId: salesId}]})
         if(delivery) {
             delivery.items = deliveryItems
             delivery.customerPO = req.body.customerPO
