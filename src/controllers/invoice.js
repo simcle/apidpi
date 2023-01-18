@@ -475,7 +475,10 @@ exports.getDetailInvoice = (req, res) => {
             foreignField: '_id',
             as: 'items.brands'
         }},
-        {$unwind: '$items.brands'},
+        {$unwind: {
+            path: '$items.brands',
+            preserveNullAndEmptyArrays: true
+        }},
         {$unwind: '$items.product'},
         {$addFields: {
             'items.name': '$items.product.name',
