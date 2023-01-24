@@ -79,7 +79,6 @@ exports.getInvoive = (req, res) => {
         } else {
             totalItems = 0
         }
-
         return Invoices.aggregate([
             {$lookup: {
                 from: 'customers',
@@ -187,7 +186,7 @@ exports.createInvoice = async (req, res) => {
             grandTotal: grandTotal,
             amountDue: grandTotal,
             offerConditions: req.body.offerConditions,
-            userID: req.user._id
+            userId: req.user._id
         })
     } else {
         invoice = new Invoices({
@@ -213,7 +212,7 @@ exports.createInvoice = async (req, res) => {
             grandTotal: grandTotal,
             amountDue: req.body.downPayments[0].amount,
             offerConditions: req.body.offerConditions,
-            userID: req.user._id
+            userId: req.user._id
         })
     }
     invoice.save()

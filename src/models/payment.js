@@ -8,7 +8,11 @@ const PaymentSchema = new Schema({
     paymentDate: {type: Date},
     amount: {type: Number},
     bankId: {type: Schema.Types.ObjectId, ref: 'banks'},
-    userId: {type: Schema.Types.ObjectId, ref: 'users'}
+    userId: {type: Schema.Types.ObjectId, ref: 'users'},
+    isValidate: {type: Boolean, default: false},
+    diffrence: {type: Number, default: 0},
+    validated: {type: Date},
+    validateBy: {type: Schema.Types.ObjectId}
 }, {
     timestamps: true
 })
