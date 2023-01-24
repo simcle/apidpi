@@ -599,6 +599,7 @@ exports.cancelledInvoice = async (req, res) => {
     .then(result => {
         invoice = result
         result.status = 'Cancelled'
+        result.paymentStatus = 'Not Paid'
        return result.save()
     })
     .then(async () => {
@@ -614,6 +615,10 @@ exports.cancelledInvoice = async (req, res) => {
                         }
                     }
                 }
+            }
+            let objId = sale.payments.findIndex(obj => obj.invoiceId == invoiceId)
+            if(objId > -1) {
+                sale.payments.splice(objId, 1)
             }
             if(invoices.length == 0) {
                 sale.invoiceStatus = 'Nothing to Invoice'
