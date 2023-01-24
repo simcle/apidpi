@@ -67,3 +67,19 @@ exports.getSubdistricts = (req, res) => {
         res.status(400).send(err);
     })
 }
+
+exports.getCitiesCompany = (req, res) => {
+    const proviceId = req.params.proviceId
+    Cities.find({province_id: proviceId})
+    .then(result => {
+        res.status(200).json(result)
+    })
+}
+
+exports.getSubdistrictsCompany = (req, res) => {
+    const cityId = Number(req.params.cityId)
+    Subdisctricts.find({city_id: cityId})
+    .then(result => {
+        res.status(200).json(result)
+    })
+}
