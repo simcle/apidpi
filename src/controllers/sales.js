@@ -73,9 +73,44 @@ exports.getSales = (req, res) => {
         {$addFields: {
             'customer': '$customer.displayName'
         }},
-        {$match: {
-            $and: [{status: 'Sales Order'}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {salesNo: {$regex: '.*'+search+'.*', $options:'i'}}]}, query]
-        }},
+        {$unwind: '$items'},
+            {$lookup: {
+                from: 'products',
+                localField: 'items.productId',
+                foreignField: '_id',
+                pipeline: [
+                    {$project: {
+                        _id: 0,
+                        name: 1,
+                        stock: 1
+                    }},
+                ],
+                as: 'items.product'
+            }},
+            {$unwind: '$items.product'},
+            {$addFields: {
+                'items.name': '$items.product.name',
+            }},
+            {$unset: 'items.product'},
+            {$group: {
+                _id: '$_id',
+                items: {$push: '$items'},
+                root: {$first: '$$ROOT'}
+            }},
+            {$project: {
+                'root.items' : 0,
+            }},
+            {$replaceRoot: {
+                newRoot: {
+                    $mergeObjects: [
+                        { items: "$items" },
+                        "$root"
+                    ]
+                }
+            }},
+            {$match: {
+                $and: [{status: 'Sales Order'}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {salesNo: {$regex: '.*'+search+'.*', $options:'i'}}, {items: {$elemMatch: {name: {$regex: '.*'+search+'.*', $options:'i'}}}}]}, query]
+            }},
         {$count: 'count'}
     ])
     .then(count => {
@@ -130,8 +165,43 @@ exports.getSales = (req, res) => {
             {$addFields: {
                 'customer': '$customer.displayName'
             }},
+            {$unwind: '$items'},
+            {$lookup: {
+                from: 'products',
+                localField: 'items.productId',
+                foreignField: '_id',
+                pipeline: [
+                    {$project: {
+                        _id: 0,
+                        name: 1,
+                        stock: 1
+                    }},
+                ],
+                as: 'items.product'
+            }},
+            {$unwind: '$items.product'},
+            {$addFields: {
+                'items.name': '$items.product.name',
+            }},
+            {$unset: 'items.product'},
+            {$group: {
+                _id: '$_id',
+                items: {$push: '$items'},
+                root: {$first: '$$ROOT'}
+            }},
+            {$project: {
+                'root.items' : 0,
+            }},
+            {$replaceRoot: {
+                newRoot: {
+                    $mergeObjects: [
+                        { items: "$items" },
+                        "$root"
+                    ]
+                }
+            }},
             {$match: {
-                $and: [{status: 'Sales Order'}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {salesNo: {$regex: '.*'+search+'.*', $options:'i'}}]}, query]
+                $and: [{status: 'Sales Order'}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {salesNo: {$regex: '.*'+search+'.*', $options:'i'}}, {items: {$elemMatch: {name: {$regex: '.*'+search+'.*', $options:'i'}}}}]}, query]
             }},
             {$sort: {salesCreated: -1}},
             {$skip: (currentPage -1) * perPage},
