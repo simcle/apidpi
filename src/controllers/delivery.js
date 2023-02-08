@@ -270,6 +270,53 @@ exports.getDetailDelivery = async (req, res) => {
             from: 'customers',
             localField: 'shipTo',
             foreignField: '_id',
+            pipeline: [
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$parentId',
+                    connectFromField: 'parentId',
+                    connectToField: '_id',
+                    as: 'parents'
+                }},
+                {$unwind: {
+                    path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                }},
+                {$sort: {'parents._id': 1}},
+                {
+                    $group: {
+                        _id: "$_id",
+                        parents: { $first: "$parents" },
+                        root: { $first: "$$ROOT" }
+                    }
+                },
+                {
+                    $project: {
+                        customer: '$root',
+                        parent: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: '$parents.name',
+                                else: '$root.name'
+                            }
+                        },
+                        displayName: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: {$concat: ['$parents.name', ', ', '$root.name']},
+                                else: '$root.name'
+                            }
+                        },
+                        attn: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: '$root.name',
+                                else: ''
+                            }
+                        },
+                    }
+                },
+            ],
             as: 'shipTo'
         }},
         {$unwind: '$shipTo'},

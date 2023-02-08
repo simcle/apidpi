@@ -45,6 +45,7 @@ const serialNumberRoutes = require('./src/routers/serialNumbers');
 
 const tokopediaRoutes = require('./src/routers/tokopedia');
 
+// router sementara untuk updata database
 const updateRoutes = require('./src/routers/update');
 app.use('/update', updateRoutes);
 

@@ -291,11 +291,12 @@ exports.getDetailInvoice = (req, res) => {
                 },
                 {
                     $project: {
-                        customer: {
+                        customer: '$root',
+                        parent: {
                             $cond: {
                                 if: {$ifNull: ['$parents.name', false]},
-                                then: '$parents',
-                                else: '$root'
+                                then: '$parents.name',
+                                else: '$root.name'
                             }
                         },
                         displayName: {
@@ -334,40 +335,38 @@ exports.getDetailInvoice = (req, res) => {
                     path: '$parents',
                     preserveNullAndEmptyArrays: true
                 }},
-                {$graphLookup: {
-                    from: 'customers',
-                    startWith: '$_id',
-                    connectFromField: '_id',
-                    connectToField: 'parentId',
-                    as: 'attn'
-                }},
-                {$unwind: {
-                    path: '$attn',
-                    preserveNullAndEmptyArrays: true
-                }},
                 {$sort: {'parents._id': 1}},
                 {
                     $group: {
                         _id: "$_id",
                         parents: { $first: "$parents" },
-                        attn: {$first: "$attn"},
                         root: { $first: "$$ROOT" }
                     }
                 },
                 {
                     $project: {
-                        parent: '$parents.name',
-                        attn: '$attn.name',
-                        name: '$root.name',
-                        address: '$root.address',
-                        contact: '$root.contact',
+                        customer: '$root',
+                        parent: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: '$parents.name',
+                                else: '$root.name'
+                            }
+                        },
                         displayName: {
                             $cond: {
                                 if: {$ifNull: ['$parents.name', false]},
                                 then: {$concat: ['$parents.name', ', ', '$root.name']},
                                 else: '$root.name'
                             }
-                        }
+                        },
+                        attn: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: '$root.name',
+                                else: ''
+                            }
+                        },
                     }
                 },
             ],
