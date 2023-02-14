@@ -292,6 +292,13 @@ exports.getDetailInvoice = (req, res) => {
                 {
                     $project: {
                         customer: '$root',
+                        phone: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.contact', false]},
+                                then: '$parents.contact',
+                                else: '$root.contact'
+                            }
+                        },
                         parent: {
                             $cond: {
                                 if: {$ifNull: ['$parents.name', false]},
@@ -346,6 +353,13 @@ exports.getDetailInvoice = (req, res) => {
                 {
                     $project: {
                         customer: '$root',
+                        phone: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.contact', false]},
+                                then: '$parents.contact',
+                                else: '$root.contact'
+                            }
+                        },
                         parent: {
                             $cond: {
                                 if: {$ifNull: ['$parents.name', false]},

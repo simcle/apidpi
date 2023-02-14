@@ -293,6 +293,13 @@ exports.getDetailDelivery = async (req, res) => {
                 {
                     $project: {
                         customer: '$root',
+                        phone: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.contact', false]},
+                                then: '$parents.contact',
+                                else: '$root.contact'
+                            }
+                        },
                         parent: {
                             $cond: {
                                 if: {$ifNull: ['$parents.name', false]},
