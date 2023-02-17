@@ -7,6 +7,7 @@ const Shipings = require('../models/shipping');
 const Taxs = require('../models/taxCode');
 const Customers = require('../models/customers');
 const Tasks = require('../models/tasks');
+const Invoices = require('../models/invoice')
 const fs = require('fs');
 const path = require('path');
 const sharp = require('sharp');
@@ -241,14 +242,39 @@ exports.deatailCustomer = (req, res) => {
             }
         },
     ])
+    const Products = Invoices.aggregate([
+        {$match: {customerId: customerId}},
+        {$unwind: {
+            path: '$items',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
+            from: 'products',
+            localField: 'items.productId',
+            foreignField: '_id',
+            as: 'item'
+        }},
+        {$unwind: {
+            path: '$item',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$group: {
+            _id: '$items.productId',
+            sum: {$sum: '$items.qty'},
+            name: {$first: '$item.name'}
+        }}
+        
+    ])
     Promise.all([
         tasks,
-        customer
+        customer,
+        Products
     ])
     .then(result => {
         res.status(200).json({
             tasks: result[0],
-            customer: result[1][0]
+            customer: result[1][0],
+            products: result[2]
         })
     })
     .catch(err => {
