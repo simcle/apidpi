@@ -229,6 +229,187 @@ exports.getSales = (req, res) => {
 
 exports.getDetailSales = (req, res) => {
     const salesId = mongoose.Types.ObjectId(req.params.salesId);
+    const search = req.query.search;
+    const filter = req.query.filter;
+    let query;
+    if(filter) {
+        query = {invoiceStatus: {$in: filter}}
+    } else {
+        query = {}
+    }
+
+    const currPage = Sales.aggregate([
+        {$lookup: {
+            from: 'customers',
+            localField: 'customerId',
+            foreignField: '_id',
+            pipeline: [
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$parentId',
+                    connectFromField: 'parentId',
+                    connectToField: '_id',
+                    as: 'parents'
+                }},
+                {$unwind: {
+                    path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                }},
+                {$sort: {'parents._id': 1}},
+                {
+                    $group: {
+                        _id: "$_id",
+                        parents: { $first: "$parents" },
+                        root: { $first: "$$ROOT" }
+                    }
+                },
+                {
+                    $project: {
+                        parent: '$parents.name',
+                        name: '$root.name',
+                        address: '$root.address',
+                        displayName: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: {$concat: ['$parents.name', ', ', '$root.name']},
+                                else: '$root.name'
+                            }
+                        }
+                    }
+                },
+            ],
+            as: 'customer'
+        }},
+        {$unwind: '$customer'},
+        {$addFields: {
+            'customer': '$customer.displayName'
+        }},
+        {$unwind: '$items'},
+        {$lookup: {
+            from: 'products',
+            localField: 'items.productId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    _id: 0,
+                    name: 1,
+                    stock: 1
+                }},
+            ],
+            as: 'items.product'
+        }},
+        {$unwind: '$items.product'},
+        {$addFields: {
+            'items.name': '$items.product.name',
+        }},
+        {$unset: 'items.product'},
+        {$group: {
+            _id: '$_id',
+            items: {$push: '$items'},
+            root: {$first: '$$ROOT'}
+        }},
+        {$project: {
+            'root.items' : 0,
+        }},
+        {$replaceRoot: {
+            newRoot: {
+                $mergeObjects: [
+                    { items: "$items" },
+                    "$root"
+                ]
+            }
+        }},
+        {$match: {
+            $and: [{status: 'Sales Order'},{_id: {$gte: salesId}}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {salesNo: {$regex: '.*'+search+'.*', $options:'i'}}, {items: {$elemMatch: {name: {$regex: '.*'+search+'.*', $options:'i'}}}}]}, query]
+        }},
+        {$count: 'count'}
+    ])
+    const totalItems = Sales.aggregate([
+        {$lookup: {
+            from: 'customers',
+            localField: 'customerId',
+            foreignField: '_id',
+            pipeline: [
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$parentId',
+                    connectFromField: 'parentId',
+                    connectToField: '_id',
+                    as: 'parents'
+                }},
+                {$unwind: {
+                    path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                }},
+                {$sort: {'parents._id': 1}},
+                {
+                    $group: {
+                        _id: "$_id",
+                        parents: { $first: "$parents" },
+                        root: { $first: "$$ROOT" }
+                    }
+                },
+                {
+                    $project: {
+                        parent: '$parents.name',
+                        name: '$root.name',
+                        address: '$root.address',
+                        displayName: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: {$concat: ['$parents.name', ', ', '$root.name']},
+                                else: '$root.name'
+                            }
+                        }
+                    }
+                },
+            ],
+            as: 'customer'
+        }},
+        {$unwind: '$customer'},
+        {$addFields: {
+            'customer': '$customer.displayName'
+        }},
+        {$unwind: '$items'},
+        {$lookup: {
+            from: 'products',
+            localField: 'items.productId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    _id: 0,
+                    name: 1,
+                    stock: 1
+                }},
+            ],
+            as: 'items.product'
+        }},
+        {$unwind: '$items.product'},
+        {$addFields: {
+            'items.name': '$items.product.name',
+        }},
+        {$unset: 'items.product'},
+        {$group: {
+            _id: '$_id',
+            items: {$push: '$items'},
+            root: {$first: '$$ROOT'}
+        }},
+        {$project: {
+            'root.items' : 0,
+        }},
+        {$replaceRoot: {
+            newRoot: {
+                $mergeObjects: [
+                    { items: "$items" },
+                    "$root"
+                ]
+            }
+        }},
+        {$match: {
+            $and: [{status: 'Sales Order'}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {salesNo: {$regex: '.*'+search+'.*', $options:'i'}}, {items: {$elemMatch: {name: {$regex: '.*'+search+'.*', $options:'i'}}}}]}, query]
+        }},
+        {$count: 'count'}
+    ])
     const quotation = Sales.aggregate([
         {$lookup: {
             from: 'users',
@@ -525,19 +706,139 @@ exports.getDetailSales = (req, res) => {
         quotation,
         activities,
         delivery,
-        invoices
+        invoices,
+        currPage,
+        totalItems,
     ])
     .then(result => {
+        let page = 0
+        let count = 0
+        if(result[4].length > 0) {
+            page = result[4][0].count
+        }
+        if(result[5].length > 0) {
+            count = result[5][0].count
+        }
         res.status(200).json({
             sales: result[0][0],
             activities: result[1],
             delivery: result[2],
-            invoices: result[3]
+            invoices: result[3],
+            pages: {
+                currPage: page,
+                totalItems: count
+            }
         });
     })
     .catch(err => {
         res.status(400).send(err);
     });
+}
+
+exports.getByPages = (req, res) => {
+    const search = req.query.search;
+    const filter = req.query.filter;
+    const page = parseInt(req.query.page)
+    let query;
+    if(filter) {
+        query = {invoiceStatus: {$in: filter}}
+    } else {
+        query = {}
+    }
+    Sales.aggregate([
+        {$lookup: {
+            from: 'customers',
+            localField: 'customerId',
+            foreignField: '_id',
+            pipeline: [
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$parentId',
+                    connectFromField: 'parentId',
+                    connectToField: '_id',
+                    as: 'parents'
+                }},
+                {$unwind: {
+                    path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                }},
+                {$sort: {'parents._id': 1}},
+                {
+                    $group: {
+                        _id: "$_id",
+                        parents: { $first: "$parents" },
+                        root: { $first: "$$ROOT" }
+                    }
+                },
+                {
+                    $project: {
+                        parent: '$parents.name',
+                        name: '$root.name',
+                        address: '$root.address',
+                        displayName: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: {$concat: ['$parents.name', ', ', '$root.name']},
+                                else: '$root.name'
+                            }
+                        }
+                    }
+                },
+            ],
+            as: 'customer'
+        }},
+        {$unwind: '$customer'},
+        {$addFields: {
+            'customer': '$customer.displayName'
+        }},
+        {$unwind: '$items'},
+        {$lookup: {
+            from: 'products',
+            localField: 'items.productId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    _id: 0,
+                    name: 1,
+                    stock: 1
+                }},
+            ],
+            as: 'items.product'
+        }},
+        {$unwind: '$items.product'},
+        {$addFields: {
+            'items.name': '$items.product.name',
+        }},
+        {$unset: 'items.product'},
+        {$group: {
+            _id: '$_id',
+            items: {$push: '$items'},
+            root: {$first: '$$ROOT'}
+        }},
+        {$project: {
+            'root.items' : 0,
+        }},
+        {$replaceRoot: {
+            newRoot: {
+                $mergeObjects: [
+                    { items: "$items" },
+                    "$root"
+                ]
+            }
+        }},
+        {$match: {
+            $and: [{status: 'Sales Order'}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {salesNo: {$regex: '.*'+search+'.*', $options:'i'}}, {items: {$elemMatch: {name: {$regex: '.*'+search+'.*', $options:'i'}}}}]}, query]
+        }},
+        {$sort: {salesCreated: -1}},
+        {$project: {
+            salesNo: 1
+        }},
+        {$skip: page},
+        {$limit: 1},
+    ])
+    .then(result => {
+        res.status(200).json(result[0])
+    })
 }
 
 exports.editSales = (req, res) => {

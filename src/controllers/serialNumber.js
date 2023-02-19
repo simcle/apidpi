@@ -1,7 +1,5 @@
 const SerialNumbers = require('../models/serialNumbers');
-
-
-
+const mongoose = require('mongoose')
 exports.getSerialNumber = (req, res) => {
     const currentPage = req.query.page || 1;
     const perPage = req.query.perPage || 20;
@@ -75,5 +73,70 @@ exports.getSerialNumber = (req, res) => {
     })
     .catch(err => {
         res.status(400).send(err);
+    })
+}
+
+exports.getDetailSerialNumber = (req, res) => {
+    const serialId = mongoose.Types.ObjectId(req.params.serialId)
+    SerialNumbers.aggregate([
+        {$match: {_id: serialId}},
+        {$lookup: {
+            from: 'products',
+            localField: 'productId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    name: 1,
+                    sku: 1
+                }}
+            ],
+            as: 'product'
+        }},
+        {$unwind: '$product'},
+        {$unwind: {
+            path: '$documentOut',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$lookup: {
+            from: 'invoices',
+            let: {
+                'documentId': '$documentOut.documentId',
+                'status' : ''
+            },
+            pipeline: [
+                {$match: {
+                    $expr: {
+                        $and: [
+                            {$eq: ['$salesId', '$$documentId']},
+                            {$eq: ['$status','Posted']},
+                            {$eq: ['$type','Regular']},
+                        ]
+                    }
+                }},
+                {$lookup: {
+                    from: 'customers',
+                    foreignField: '_id',
+                    localField: 'customerId',
+                    as: 'customer'
+                }},
+                {$unwind: '$customer'}
+            ],
+            as: 'invoices'
+        }},
+        {$unwind: {
+            path: '$invoices',
+            preserveNullAndEmptyArrays: true
+        }},
+        {$group: {
+            _id: '$_id',
+            invoices: {$push: '$invoices'},
+            serialNumber: {$first: '$serialNumber'},
+            name: {$first: '$product.name'},
+            sku: {$first: '$product.sku'},
+            root: {$first: '$$ROOT'}
+        }}
+    ])
+    .then(result => {
+        res.status(200).json(result[0])
     })
 }

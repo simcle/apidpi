@@ -223,6 +223,7 @@ exports.getDelivery = (req, res) => {
 exports.getDetailDelivery = async (req, res) => {
     const deliveryId = mongoose.Types.ObjectId(req.params.deliveryId);
     let warehouseId = await Warehouses.findOne({isDefault: true}).select('_id');
+    
     const delivery = Delivery.aggregate([
         {$match: {_id: deliveryId}},
         {$lookup: {

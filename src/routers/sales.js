@@ -7,5 +7,6 @@ router.get('/', salesController.getSales);
 router.get('/edit/:salesId', salesController.editSales);
 router.put('/update/:salesId', salesController.updateSales)
 router.get('/detail/:salesId', salesController.getDetailSales);
+router.get('/page', salesController.getByPages);
 
 module.exports = router;
