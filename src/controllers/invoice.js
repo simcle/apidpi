@@ -248,6 +248,123 @@ exports.createInvoice = async (req, res) => {
 
 exports.getDetailInvoice = (req, res) => {
     const invoiceId = mongoose.Types.ObjectId(req.params.invoiceId);
+    const search = req.query.search;
+    const filter = req.query.filter;
+    const salesId = req.query.salesId
+    let query;
+    let sales;
+    if(filter) {
+        query = {invoiceStatus: {$in: filter}}
+    } else {
+        query = {}
+    }
+    if(salesId) {
+        sales = {salesId: mongoose.Types.ObjectId(salesId)}
+    } else {
+        sales = {}
+    }
+    const currPage = Invoices.aggregate([
+        {$lookup: {
+            from: 'customers',
+            localField: 'customerId',
+            foreignField: '_id',
+            pipeline: [
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$parentId',
+                    connectFromField: 'parentId',
+                    connectToField: '_id',
+                    as: 'parents'
+                }},
+                {$unwind: {
+                    path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                }},
+                {$sort: {'parents._id': 1}},
+                {
+                    $group: {
+                        _id: "$_id",
+                        parents: { $first: "$parents" },
+                        root: { $first: "$$ROOT" }
+                    }
+                },
+                {
+                    $project: {
+                        parent: '$parents.name',
+                        name: '$root.name',
+                        address: '$root.address',
+                        displayName: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: {$concat: ['$parents.name', ', ', '$root.name']},
+                                else: '$root.name'
+                            }
+                        }
+                    }
+                },
+            ],
+            as: 'customer'
+        }},
+        {$unwind: '$customer'},
+        {$addFields: {
+            'customer': '$customer.displayName'
+        }},
+        {$match: {
+            $and: [{_id: {$gte: invoiceId}}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {invoiceNo: {$regex: '.*'+search+'.*', $options:'i'}}]}, query, sales]
+        }},
+        {$count: 'count'}
+    ])
+    const totalItems = Invoices.aggregate([
+        {$lookup: {
+            from: 'customers',
+            localField: 'customerId',
+            foreignField: '_id',
+            pipeline: [
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$parentId',
+                    connectFromField: 'parentId',
+                    connectToField: '_id',
+                    as: 'parents'
+                }},
+                {$unwind: {
+                    path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                }},
+                {$sort: {'parents._id': 1}},
+                {
+                    $group: {
+                        _id: "$_id",
+                        parents: { $first: "$parents" },
+                        root: { $first: "$$ROOT" }
+                    }
+                },
+                {
+                    $project: {
+                        parent: '$parents.name',
+                        name: '$root.name',
+                        address: '$root.address',
+                        displayName: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: {$concat: ['$parents.name', ', ', '$root.name']},
+                                else: '$root.name'
+                            }
+                        }
+                    }
+                },
+            ],
+            as: 'customer'
+        }},
+        {$unwind: '$customer'},
+        {$addFields: {
+            'customer': '$customer.displayName'
+        }},
+        {$match: {
+            $and: [{$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {invoiceNo: {$regex: '.*'+search+'.*', $options:'i'}}]}, query, sales]
+        }},
+        {$count: 'count'}
+    ])
     const invoice = Invoices.aggregate([
         {$match: {_id: invoiceId}},
         {$lookup: {
@@ -532,17 +649,109 @@ exports.getDetailInvoice = (req, res) => {
     ])
     Promise.all([
         invoice,
-        payments
+        payments,
+        currPage,
+        totalItems
     ])
     .then(result => {
+        let page = 0
+        let count = 0
+        if(result[2].length > 0) {
+            page = result[2][0].count
+        }
+        if(result[3].length > 0) {
+            count = result[3][0].count
+        }
         res.status(200).json({
             invoice: result[0][0],
-            payments: result[1]
+            payments: result[1],
+            pages: {
+                currPage: page,
+                totalItems: count
+            }
         })
     })
     .catch(err => {
         console.log(err);
         res.status(400).send(err)
+    })
+}
+
+exports.getByPage = (req, res) => {
+    const search = req.query.search;
+    const filter = req.query.filter;
+    const page = parseInt(req.query.page)
+    const salesId = req.query.salesId
+    let query;
+    let sales;
+    if(filter) {
+        query = {invoiceStatus: {$in: filter}}
+    } else {
+        query = {}
+    }
+    if(salesId) {
+        sales = {salesId: mongoose.Types.ObjectId(salesId)}
+    } else {
+        sales = {}
+    }
+    Invoices.aggregate([
+        {$lookup: {
+            from: 'customers',
+            localField: 'customerId',
+            foreignField: '_id',
+            pipeline: [
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$parentId',
+                    connectFromField: 'parentId',
+                    connectToField: '_id',
+                    as: 'parents'
+                }},
+                {$unwind: {
+                    path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                }},
+                {$sort: {'parents._id': 1}},
+                {
+                    $group: {
+                        _id: "$_id",
+                        parents: { $first: "$parents" },
+                        root: { $first: "$$ROOT" }
+                    }
+                },
+                {
+                    $project: {
+                        parent: '$parents.name',
+                        name: '$root.name',
+                        address: '$root.address',
+                        displayName: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: {$concat: ['$parents.name', ', ', '$root.name']},
+                                else: '$root.name'
+                            }
+                        }
+                    }
+                },
+            ],
+            as: 'customer'
+        }},
+        {$unwind: '$customer'},
+        {$addFields: {
+            'customer': '$customer.displayName'
+        }},
+        {$match: {
+            $and: [{$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {invoiceNo: {$regex: '.*'+search+'.*', $options:'i'}}]}, query, sales]
+        }},
+        {$sort: {createdAt: -1}},
+        {$project: {
+            _id: 1
+        }},
+        {$skip: page},
+        {$limit: 1}
+    ])
+    .then(result => {
+        res.status(200).json(result[0])
     })
 }
 
@@ -595,6 +804,7 @@ exports.updateInvoice = async (req, res) => {
         inv.items = req.body.items
         inv.total = req.body.total
         inv.grandTotal = req.body.grandTotal
+        inv.dueDate = req.body.dueDate
         return inv.save()
     })
     .then (() => {
