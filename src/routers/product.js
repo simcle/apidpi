@@ -66,5 +66,6 @@ router.delete('/delete/:productId', productController.deleteProduct);
 router.get('/overview/:productId', productController.overviewProduct);
 router.get('/warehouses', productController.productWarehouses);
 router.get('/inventories/:productId', productController.productInvenotries);
+router.get('/history/:productId', productController.productHistory);
 
 module.exports = router;

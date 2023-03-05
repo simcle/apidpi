@@ -13,6 +13,7 @@ const Sales = require('../models/sales');
 const Pos = require('../models/pos');
 const StockCard = require('../models/stockCard');
 const StockOpname = require('../models/stockOpname');
+const Invoices = require('../models/invoice')
 
 exports.getProducts = (req, res) => {
     const brands = Brands.find().sort({name: 1});
@@ -144,7 +145,7 @@ exports.getInventory = (req, res) =>  {
 
 exports.getProductInfo = (req, res) => {
     const productId = req.params.productId;
-    Products.findById(productId)
+    const products = Products.findById(productId)
     .populate('brandId', 'name')
     .populate('categoriesId', 'name')
     .populate('accessories', 'images name sku')
@@ -546,6 +547,135 @@ exports.deleteProduct = (req, res) => {
     })
 }
 
+// PRODUCT HISTORY
+exports.productHistory = (req, res) => {
+    const productId = mongoose.Types.ObjectId(req.params.productId);
+    const currentPage = req.query.page || 1;
+    const perPage = req.query.perPage || 20;
+    const search = req.query.search
+    let totalItems;
+    Invoices.aggregate([
+        {$lookup: {
+            from: 'customers',
+            localField: 'customerId',
+            foreignField: '_id',
+            pipeline: [
+                {$graphLookup: {
+                    from: 'customers',
+                    startWith: '$parentId',
+                    connectFromField: 'parentId',
+                    connectToField: '_id',
+                    as: 'parents'
+                }},
+                {$unwind: {
+                    path: '$parents',
+                    preserveNullAndEmptyArrays: true
+                }},
+                {$sort: {'parents._id': 1}},
+                {
+                    $group: {
+                        _id: "$_id",
+                        parents: { $first: "$parents" },
+                        root: { $first: "$$ROOT" }
+                    }
+                },
+                {
+                    $project: {
+                        parent: '$parents.name',
+                        name: '$root.name',
+                        address: '$root.address',
+                        displayName: {
+                            $cond: {
+                                if: {$ifNull: ['$parents.name', false]},
+                                then: {$concat: ['$parents.name', ', ', '$root.name']},
+                                else: '$root.name'
+                            }
+                        }
+                    }
+                },
+            ],
+            as: 'customer'
+        }},
+        {$unwind: '$customer'},
+        {$addFields: {
+            'customer': '$customer.displayName'
+        }},
+        {$match: {$and:[{'items.productId': productId}, {status: 'Posted'} ,{customer: {$regex: '.*'+search+'.*', $options: 'i'}}]}},
+        {$count: 'count'}
+    ])
+    .then(count => {
+        if(count.length > 0) {
+            totalItems = count[0].count
+        } else {
+            totalItems = 0
+        }
+        Invoices.aggregate([
+            {$lookup: {
+                from: 'customers',
+                localField: 'customerId',
+                foreignField: '_id',
+                pipeline: [
+                    {$graphLookup: {
+                        from: 'customers',
+                        startWith: '$parentId',
+                        connectFromField: 'parentId',
+                        connectToField: '_id',
+                        as: 'parents'
+                    }},
+                    {$unwind: {
+                        path: '$parents',
+                        preserveNullAndEmptyArrays: true
+                    }},
+                    {$sort: {'parents._id': 1}},
+                    {
+                        $group: {
+                            _id: "$_id",
+                            parents: { $first: "$parents" },
+                            root: { $first: "$$ROOT" }
+                        }
+                    },
+                    {
+                        $project: {
+                            parent: '$parents.name',
+                            name: '$root.name',
+                            address: '$root.address',
+                            displayName: {
+                                $cond: {
+                                    if: {$ifNull: ['$parents.name', false]},
+                                    then: {$concat: ['$parents.name', ', ', '$root.name']},
+                                    else: '$root.name'
+                                }
+                            }
+                        }
+                    },
+                ],
+                as: 'customer'
+            }},
+            {$unwind: '$customer'},
+            {$addFields: {
+                'customer': '$customer.displayName'
+            }},
+            {$match: {$and:[{'items.productId': productId}, {status: 'Posted'} ,{customer: {$regex: '.*'+search+'.*', $options: 'i'}}]}},
+            {$sort: {createdAt: -1}},
+            {$skip: (currentPage -1) * perPage},
+            {$limit: perPage}
+        ])
+        .then(result => {
+            const last_page = Math.ceil(totalItems / perPage)
+            const pageValue = currentPage * perPage - perPage + 1
+            const pageLimit = pageValue + result.length -1
+            res.status(200).json({
+                data: result,
+                pages: {
+                    current_page: currentPage,
+                    last_page: last_page,
+                    pageValue: pageValue+'-'+pageLimit,
+                    totalItems: totalItems 
+                },
+            })
+        })
+    })
+}
 // PRODUCT DETAIL
 exports.overviewProduct = (req, res) => {
     const productId = mongoose.Types.ObjectId(req.params.productId)
