@@ -714,7 +714,7 @@ exports.overviewProduct = (req, res) => {
         }},
         {$project: {
             productId: '$items.productId',
-            qty: {$sum: '$items.delivered'}
+            qty: {$sum: '$items.invoiced'}
         }},
         {$group: {
             _id: 'Sales',
