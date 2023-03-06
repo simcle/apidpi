@@ -600,7 +600,7 @@ exports.productHistory = (req, res) => {
         {$addFields: {
             'customer': '$customer.displayName'
         }},
-        {$match: {$and:[{'items.productId': productId}, {status: 'Posted'} ,{customer: {$regex: '.*'+search+'.*', $options: 'i'}}]}},
+        {$match: {$and:[{'items.productId': productId}, {status: 'Posted'}, {type: 'Regular'} ,{customer: {$regex: '.*'+search+'.*', $options: 'i'}}]}},
         {$count: 'count'}
     ])
     .then(count => {
@@ -655,7 +655,7 @@ exports.productHistory = (req, res) => {
             {$addFields: {
                 'customer': '$customer.displayName'
             }},
-            {$match: {$and:[{'items.productId': productId}, {status: 'Posted'} ,{customer: {$regex: '.*'+search+'.*', $options: 'i'}}]}},
+            {$match: {$and:[{'items.productId': productId}, {status: 'Posted'}, {type: 'Regular'} ,{customer: {$regex: '.*'+search+'.*', $options: 'i'}}]}},
             {$sort: {createdAt: -1}},
             {$skip: (currentPage -1) * perPage},
             {$limit: perPage}
