@@ -490,7 +490,7 @@ exports.getProductAutoSearc = async (req, res) => {
     if(!search) {
         query = {_id: {$nin: ids}}
     } else {
-        query = {$and: [{status: true}, {$or: [{name: {$regex: '.*'+search+'.*', $options: 'i'}}, {sku: search}], _id: {$nin: ids}}]}
+        query = {$and: [{status: true}, {$or: [{name: {$regex: '.*'+search+'.*', $options: 'i'}}, {sku: search}]}]}
     }
     Products.find(query)
     .limit(7)

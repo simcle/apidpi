@@ -8,7 +8,7 @@ exports.getSerialNumber = (req, res) => {
     let totalItems;
     let sn;
     if(search) {
-        sn = {serialNumber: search}
+        sn = {$or:[{serialNumber: search}, {product: {$regex: '.*'+search+'.*', $options: 'i'}}]}
     } else {
         sn = {}
     }
@@ -19,6 +19,28 @@ exports.getSerialNumber = (req, res) => {
         query = {}
     }
     SerialNumbers.aggregate([
+        {$lookup: {
+            from: 'products',
+            foreignField: '_id',
+            localField: 'productId',
+            pipeline: [
+                {$project: {
+                    _id: 0,
+                    name: 1,
+                    sku: 1,
+                }}
+            ],
+            as: 'product'
+        }},
+        {$unwind: '$product'},
+        {$project: {
+            sku: '$product.sku',
+            serialNumber: 1,
+            product: '$product.name',
+            status: 1,
+            createdAt: 1
+            
+        }},
         {$match: {$and: [sn, query]}},
         {$count: 'count'}
     ])
@@ -29,7 +51,6 @@ exports.getSerialNumber = (req, res) => {
             totalItems = 0
         }
         return SerialNumbers.aggregate([
-            {$match: {$and: [sn, query]}},
             {$lookup: {
                 from: 'products',
                 foreignField: '_id',
@@ -52,6 +73,7 @@ exports.getSerialNumber = (req, res) => {
                 createdAt: 1
                 
             }},
+            {$match: {$and: [sn, query]}},
             {$sort: {salesCreated: -1}},
             {$skip: (currentPage -1) * perPage},
             {$limit: perPage}
