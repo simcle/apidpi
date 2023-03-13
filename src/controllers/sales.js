@@ -227,7 +227,7 @@ exports.getSales = (req, res) => {
     })
 }
 
-exports.getDetailSales = (req, res) => {
+exports.getDetailSales = async (req, res) => {
     const salesId = mongoose.Types.ObjectId(req.params.salesId);
     const search = req.query.search;
     const filter = req.query.filter;
@@ -237,7 +237,7 @@ exports.getDetailSales = (req, res) => {
     } else {
         query = {}
     }
-
+    let created = await Sales.findById(salesId).select('salesCreated')
     const currPage = Sales.aggregate([
         {$lookup: {
             from: 'customers',
@@ -319,8 +319,9 @@ exports.getDetailSales = (req, res) => {
                 ]
             }
         }},
+        {$sort: {createdAt: 1}},
         {$match: {
-            $and: [{status: 'Sales Order'},{_id: {$gte: salesId}}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {salesNo: {$regex: '.*'+search+'.*', $options:'i'}}, {items: {$elemMatch: {name: {$regex: '.*'+search+'.*', $options:'i'}}}}]}, query]
+            $and: [{status: 'Sales Order'},{salesCreated: {$gte: created.salesCreated}}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {salesNo: {$regex: '.*'+search+'.*', $options:'i'}}, {items: {$elemMatch: {name: {$regex: '.*'+search+'.*', $options:'i'}}}}]}, query]
         }},
         {$count: 'count'}
     ])

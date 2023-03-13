@@ -316,7 +316,7 @@ exports.createInvoice = async (req, res) => {
     })
 }
 
-exports.getDetailInvoice = (req, res) => {
+exports.getDetailInvoice = async (req, res) => {
     const invoiceId = mongoose.Types.ObjectId(req.params.invoiceId);
     const search = req.query.search;
     const filter = req.query.filter;
@@ -333,6 +333,7 @@ exports.getDetailInvoice = (req, res) => {
     } else {
         sales = {}
     }
+    const created = await Invoices.findById(invoiceId).select('createdAt')
     const currPage = Invoices.aggregate([
         {$lookup: {
             from: 'customers',
@@ -379,8 +380,43 @@ exports.getDetailInvoice = (req, res) => {
         {$addFields: {
             'customer': '$customer.displayName'
         }},
+        {$unwind: '$items'},
+        {$lookup: {
+            from: 'products',
+            localField: 'items.productId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    _id: 0,
+                    name: 1,
+                    stock: 1
+                }},
+            ],
+            as: 'items.product'
+        }},
+        {$unwind: '$items.product'},
+        {$addFields: {
+            'items.name': '$items.product.name',
+        }},
+        {$unset: 'items.product'},
+        {$group: {
+            _id: '$_id',
+            items: {$push: '$items'},
+            root: {$first: '$$ROOT'}
+        }},
+        {$project: {
+            'root.items' : 0,
+        }},
+        {$replaceRoot: {
+            newRoot: {
+                $mergeObjects: [
+                    { items: "$items" },
+                    "$root"
+                ]
+            }
+        }},
         {$match: {
-            $and: [{_id: {$gte: invoiceId}}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {invoiceNo: {$regex: '.*'+search+'.*', $options:'i'}}]}, query, sales]
+            $and: [{createdAt: {$gte: created.createdAt}}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {invoiceNo: {$regex: '.*'+search+'.*', $options:'i'}}, {items: {$elemMatch: {name: {$regex: '.*'+search+'.*', $options:'i'}}}}]}, query, sales]
         }},
         {$count: 'count'}
     ])
@@ -430,8 +466,43 @@ exports.getDetailInvoice = (req, res) => {
         {$addFields: {
             'customer': '$customer.displayName'
         }},
+        {$unwind: '$items'},
+        {$lookup: {
+            from: 'products',
+            localField: 'items.productId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    _id: 0,
+                    name: 1,
+                    stock: 1
+                }},
+            ],
+            as: 'items.product'
+        }},
+        {$unwind: '$items.product'},
+        {$addFields: {
+            'items.name': '$items.product.name',
+        }},
+        {$unset: 'items.product'},
+        {$group: {
+            _id: '$_id',
+            items: {$push: '$items'},
+            root: {$first: '$$ROOT'}
+        }},
+        {$project: {
+            'root.items' : 0,
+        }},
+        {$replaceRoot: {
+            newRoot: {
+                $mergeObjects: [
+                    { items: "$items" },
+                    "$root"
+                ]
+            }
+        }},
         {$match: {
-            $and: [{$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {invoiceNo: {$regex: '.*'+search+'.*', $options:'i'}}]}, query, sales]
+            $and: [{$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {invoiceNo: {$regex: '.*'+search+'.*', $options:'i'}}, {items: {$elemMatch: {name: {$regex: '.*'+search+'.*', $options:'i'}}}}]}, query, sales]
         }},
         {$count: 'count'}
     ])
@@ -810,8 +881,43 @@ exports.getByPage = (req, res) => {
         {$addFields: {
             'customer': '$customer.displayName'
         }},
+        {$unwind: '$items'},
+        {$lookup: {
+            from: 'products',
+            localField: 'items.productId',
+            foreignField: '_id',
+            pipeline: [
+                {$project: {
+                    _id: 0,
+                    name: 1,
+                    stock: 1
+                }},
+            ],
+            as: 'items.product'
+        }},
+        {$unwind: '$items.product'},
+        {$addFields: {
+            'items.name': '$items.product.name',
+        }},
+        {$unset: 'items.product'},
+        {$group: {
+            _id: '$_id',
+            items: {$push: '$items'},
+            root: {$first: '$$ROOT'}
+        }},
+        {$project: {
+            'root.items' : 0,
+        }},
+        {$replaceRoot: {
+            newRoot: {
+                $mergeObjects: [
+                    { items: "$items" },
+                    "$root"
+                ]
+            }
+        }},
         {$match: {
-            $and: [{$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {invoiceNo: {$regex: '.*'+search+'.*', $options:'i'}}]}, query, sales]
+            $and: [{$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {invoiceNo: {$regex: '.*'+search+'.*', $options:'i'}}, {items: {$elemMatch: {name: {$regex: '.*'+search+'.*', $options:'i'}}}}]}, query, sales]
         }},
         {$sort: {createdAt: -1}},
         {$project: {
