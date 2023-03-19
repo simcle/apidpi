@@ -256,17 +256,40 @@ exports.insertPos = async (req, res) => {
         })
         return invoice.save()
     })
-    .then(result => {
-        const payment = new Payments({
-            journal: req.body.paymentMethod,
-            invoiceId: result._id,
-            customerId: result.customerId,
-            paymentDate: new Date(),
-            amount: result.grandTotal,
-            bankId: req.body.bankId,
-            userId: req.user._id
-        })
-        return payment.save()
+    .then( async (result) => {
+        if(req.body.paymentMethod == 'Multiple') {
+            return Payments.insertMany([
+                {
+                    journal: 'Cash',
+                    invoiceId: result._id,
+                    customerId: result.customerId,
+                    paymentDate: new Date(),
+                    amount: req.body.multiplePayment.cash,
+                    userId: req.user._id
+                },
+                {
+                    journal: req.body.multiplePayment.journalBank,
+                    invoiceId: result._id,
+                    customerId: result.customerId,
+                    paymentDate: new Date(),
+                    amount: req.body.multiplePayment.bank,
+                    bankId: req.body.multiplePayment.bankId,
+                    userId: req.user._id
+                }
+            ])
+            
+        } else {
+            const payment = new Payments({
+                journal: req.body.paymentMethod,
+                invoiceId: result._id,
+                customerId: result.customerId,
+                paymentDate: new Date(),
+                amount: result.grandTotal,
+                bankId: req.body.bankId,
+                userId: req.user._id
+            })
+            return payment.save()
+        }
     })
     .then(async (result) => {
         const items = req.body.items

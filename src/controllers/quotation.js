@@ -709,13 +709,18 @@ exports.editQuotation = (req, res) => {
 
 exports.duplicateQuotation = async (req, res) => {
     const quotationId = req.params.quotationId;
-    const duplicate = await Sales.findById(quotationId);
+    const duplicate = await Sales.findById(quotationId)
+    for(let i = 0; i < duplicate.items.length; i++) {
+        const el = duplicate.items[i]
+        el.delivered = 0
+        el.invoiced = 0
+    }
+    console.log(duplicate)
     let newID;
     const date = new Date();
     let dd = date.getDate();
     let mm = date.getMonth() +1;
     let yy = date.getFullYear().toString().substring(2);
-    let YY = date.getFullYear()
     dd = checkTime(dd);
     mm = checkTime(mm)
 
@@ -731,39 +736,37 @@ exports.duplicateQuotation = async (req, res) => {
     Sales.findOne({createdAt: {$gte: today}}).sort({createdAt: -1})
     .then(result => {
         if(result) {
-            const no = result.no.substring(16)
+            const no = result.quotationNo.substring(16)
             const newNo = parseInt(no) + 1
             newID = `${dd}${mm}/DPI/QUO/${yy}/${newNo}`
         } else {
             newID = `${dd}${mm}/DPI/QUO/${yy}/1`
         }
-        const quotation = new Quotations({
-            no: newID,
+        const quotation = new Sales({
+            customerId: duplicate.customerId,
+            shipTo: duplicate.customerId,
+            billTo: duplicate.customerId,
+            quotationNo: newID,
             remarks: duplicate.remarks,
             tags: duplicate.tags,
-            estimatedDeliveryDate: duplicate.estimatedDeliveryDate,
+            estimatedDeliveryTime: duplicate.estimatedDeliveryTime,
             dateValidaty: duplicate.dateValidaty,
-            creditTermId: duplicate.creditTermId,
-            shipmentTermId: duplicate.shipmentTermId,
-            shipmentMethodId: duplicate.shipmentMethodId,
-            shipmentService: duplicate.shipmentService,
-            shipmentCost: duplicate.shipmentCost,
+            status: 'Quotation',
             additionalCharges: duplicate.additionalCharges,
             items: duplicate.items,
-            totalQty: duplicate.totalQty,
             total: duplicate.total,
             totalAdditionalCharges: duplicate.totalAdditionalCharges,
-            discount: duplicate.discount,
-            tax: duplicate.tax,
-            status: 'New',
             grandTotal: duplicate.grandTotal,
             offerConditions: duplicate.offerConditions,
-            userId: req.user._id
+            userId: req.user._id,
+            shipping: duplicate.shipping.shipmentMethodId ? duplicate.shipping:'',
+            discount: duplicate.discount,
+            tax: duplicate.tax,
         })
         return quotation.save()
     })
     .then(result => {
-        activity('insert','Quotations', result.customerId, result._id, result.no, req.user._id, result, result)
+        activity('insert','Quotations', result.customerId, result._id, result.quotationNo, req.user._id, result, result)
         res.status(200).json(result)
     })
     .catch(err => {
