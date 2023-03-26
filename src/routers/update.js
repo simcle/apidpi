@@ -2,41 +2,20 @@ const express = require('express')
 const router = express.Router();
 
 
-const stockOpname = require('../models/stockOpname');
+const Delivery = require('../models/delivery');
 router.put('/', (req, res) => {
-    const stockOpnameId = '6412b9229535d03da346177a'
-    stockOpname.findById(stockOpnameId)
-    .then(result => {
-        console.log(result);
+    Delivery.find({shipTo: {$exists: false}})
+    .then(async (result) => {
+        for(let i = 0; i < result.length; i++) {
+            const el = result[i]
+            console.log(el._id);
+            await Delivery.findByIdAndUpdate(el._id, {shipTo: el.customerId})
+        }
+        res.status(200).json('done')
     })
 })
 
 
-// router.put('/', (req, res) => {
-//     Sales.find()
-//     .then( async(sales) => {
-//         for (let i = 0; i < sales.length; i++) {
-//             const el = sales[i];
-//             await Sales.findById(el._id)
-//            
-//                  .then(async (sales) => {sales.billTo = sales.customerId
-//                 sales.shipTo = sales.customerId
-//                 await sales.save()
-//             })
-//         }
-//     })
-//     Invoices.find()
-//     .then(async(invoice) => {
-//         for (let i = 0; i < invoice.length; i++) {
-//             const el = invoice[i];
-//             await Invoices.findById(el._id)
-//             .then(async(inv) => {
-//                 inv.billTo = inv.customerId
-//                 inv.shipTo = inv.customerId
-//                 await inv.save()
-//             })
-//         }
-//     })
-// })
+
 
 module.exports = router;
