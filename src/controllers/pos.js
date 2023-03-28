@@ -16,10 +16,10 @@ exports.getPos = (req, res) => {
     let totalItems;
     let query;
     if(filters) {
-        query = {status: {$in: filters}}
+        query = {paymentMethod: {$in: filters}}
     } else {
         query = {}
-    }
+    } 
     Pointofsales.aggregate([
         {$lookup: {
             from: 'customers',
