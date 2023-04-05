@@ -1,17 +1,15 @@
 const express = require('express')
 const router = express.Router();
+const mongoose = require('mongoose');
 
-
-const Delivery = require('../models/delivery');
+const Invoices = require('../models/invoice');
 router.put('/', (req, res) => {
-    Delivery.find({shipTo: {$exists: false}})
-    .then(async (result) => {
-        for(let i = 0; i < result.length; i++) {
-            const el = result[i]
-            console.log(el._id);
-            await Delivery.findByIdAndUpdate(el._id, {shipTo: el.customerId})
-        }
-        res.status(200).json('done')
+    let id = mongoose.Types.ObjectId('642d151f5d2380b5fa8b8212')
+    console.log(id);
+    Invoices.findById(id)
+    .then( result => {
+        result.amountDue = result.grandTotal
+        result.save()
     })
 })
 
