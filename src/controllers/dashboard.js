@@ -9,7 +9,8 @@ exports.getDashboard = (req, res) => {
         {$group: {
             _id: '$customerGroup',
             count: {$sum:1}
-        }}
+        }},
+        {$sort: {count: -1}}
     ])
     const suppliers = Suppliers.count()
     const start = new Date();
