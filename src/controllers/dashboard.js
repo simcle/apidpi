@@ -13,7 +13,7 @@ exports.getDashboard = (req, res) => {
     ])
     const suppliers = Suppliers.count()
     const start = new Date();
-    start.setDate(start.getDate()-30)
+    start.setDate(start.getDate()-100)
     start.setHours(0,0,0,0)
 
     const sales = Sales.aggregate([
@@ -66,8 +66,8 @@ exports.getDashboard = (req, res) => {
             qty: {$sum: '$qty'},
             name: {$first: '$name'}
         }},
-        {$limit: 15},
-        {$sort: {qty: -1}}
+        {$sort: {qty: -1}},
+        {$limit: 15}
     ])
     Promise.all([
         customers,
