@@ -13,7 +13,7 @@ exports.getDashboard = (req, res) => {
     ])
     const suppliers = Suppliers.count()
     const start = new Date();
-    start.setDate(start.getDate()-100)
+    start.setDate(start.getDate()-30)
     start.setHours(0,0,0,0)
 
     const sales = Sales.aggregate([
