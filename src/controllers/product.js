@@ -397,7 +397,6 @@ exports.putProduct = async (req, res) => {
                 attachmentLists.push(file.path)
             }
         }
-        console.log(req.body.model);
         product.images = imagesList
         product.attachments = attachmentLists
         product.name = req.body.name
