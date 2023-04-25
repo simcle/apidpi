@@ -22,7 +22,8 @@ exports.getDashboard = (req, res) => {
             _id: '$invoiceStatus',
             count: {$sum:1},
             total: {$sum: '$grandTotal'}
-        }}
+        }},
+        {$sort: {count: -1}}
     ])
     const pos = pointOfSales.aggregate([
         {$match: {createdAt: {$gte: start}}},
@@ -30,7 +31,8 @@ exports.getDashboard = (req, res) => {
             _id: '$paymentMethod',
             count: {$sum:1},
             total: {$sum: '$grandTotal'}
-        }}
+        }},
+        {$sort: {count: -1}}
     ])
     const invoices = Invoices.aggregate([
         {$match: {$and: [{status: 'Posted'}, {createdAt: {$gte: start}}]}},
@@ -39,7 +41,8 @@ exports.getDashboard = (req, res) => {
             count: {$sum:1},
             total: {$sum: '$grandTotal'}
 
-        }}
+        }},
+        {$sort: {count: -1}}
     ])
     const products = Invoices.aggregate([
         {$match: {$and: [{status: 'Posted'}, {paymentStatus: {$in: ['In Payment', 'Paid']}}, {createdAt: {$gte: start}}]}},
