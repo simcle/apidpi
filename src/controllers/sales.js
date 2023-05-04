@@ -22,7 +22,7 @@ exports.getSales = (req, res) => {
     const filter = req.query.filter;
     let totalItems;
     let query;
-    if(filter) {
+    if(filter && search) {
         query = {invoiceStatus: {$in: filter}}
     } else {
         query = {}
@@ -1096,90 +1096,63 @@ exports.editSales = (req, res) => {
 
 };
 exports.updateSales = async (req, res) => {
-    const salesId = req.params.salesId;
+    const salesId = req.params.salesId
     const original = await Sales.findById(salesId).lean()
-
+    const items = req.body.items
+    items.map(obj => {
+        obj.status = true
+        return obj
+    })
+    const invoiced = items.filter(obj => obj.qty > obj.invoiced)
     Sales.findById(salesId)
     .then(sales => {
-            const invoiced = req.body.items.filter(obj => obj.qty > obj.invoiced)
-            const items = req.body.items
-            items.map(obj => {
-                obj.status = true
-                return obj
-            })
-            if(invoiced.length > 0) {
-                sales.invoiceStatus = 'To Invoice'
-            }
-            sales.customerId = req.body.billTo
-            sales.billTo = req.body.billTo
-            sales.shipTo = req.body.shipTo
-            sales.customerPO = req.body.customerPO
-            sales.remarks = req.body.remarks
-            sales.tags = req.body.tags
-            sales.estimatedDeliveryTime = req.body.estimatedDeliveryTime
-            sales.dateValidaty = req.body.dateValidaty
-            sales.additionalCharges = req.body.additionalCharges
-            if(req.body.paymentTermId) {
-                sales.paymentTermId = req.body.paymentTermId
-            }
-            sales.items = items
-            if(req.body.shipping.shipmentMethodId) {
-                sales.shipping = req.body.shipping
-            } else {
-                sales.shipping = undefined
-            }
-            sales.totalQty = req.body.totalQty
-            sales.total = req.body.total
-            sales.totalAdditionalCharges = req.body.totalAdditionalCharges
-            sales.discount = req.body.discount
-            sales.tax = req.body.tax
-            sales.grandTotal = req.body.grandTotal
-            sales.offerConditions = req.body.offerConditions
+        if(invoiced.length > 0) {
+            sales.invoiceStatus = 'To Invoice'
+        }
+        sales.customerId = req.body.billTo
+        sales.billTo = req.body.billTo
+        sales.shipTo = req.body.shipTo
+        sales.customerPO = req.body.customerPO
+        sales.remarks = req.body.remarks
+        sales.tags = req.body.tags
+        sales.estimatedDeliveryTime = req.body.estimatedDeliveryTime
+        sales.dateValidaty = req.body.dateValidaty
+        sales.additionalCharges = req.body.additionalCharges
+        if(req.body.paymentTermId) {
+            sales.paymentTermId = req.body.paymentTermId
+        }
+        sales.items = items
+        if(req.body.shipping.shipmentMethodId) {
+            sales.shipping = req.body.shipping
+        } else {
+            sales.shipping = undefined
+        }
+        sales.totalQty = req.body.totalQty
+        sales.total = req.body.total
+        sales.totalAdditionalCharges = req.body.totalAdditionalCharges
+        sales.discount = req.body.discount
+        sales.tax = req.body.tax
+        sales.grandTotal = req.body.grandTotal
+        sales.offerConditions = req.body.offerConditions
         return sales.save()
     })
-    .then(async (result) => {
+    .then ( async (result) => {
         activity('update','Sales Orders', result.customerId, result._id, result.salesNo, req.user._id, original, result)
-        const invoice = Invoices.findOne({salesId: result._id})
-        .then(async (result) => {
-            if(result) {
-                result.shipTo = req.body.shipTo
-                result.billTo = req.body.billTo
-                result.amountDue = req.body.grandTotal
-                if(req.body.paymentTermId) {
-                    result.paymentTermId = req.body.paymentTermId
-                }
-                if(req.body.shipping.shipmentMethodId) {
-                    result.shipping = req.body.shipping
-                } else {
-                    result.shipping = undefined
-                }
-                await result.save()
+        await Invoices.updateMany({salesId: result._id}, {
+            $set: {
+                shipTo: result.shipTo,
+                billTo: result.billTo,
+                customerPO: result.customerPO
             }
         })
-        const items = result.items
-        items.map(obj => {
-            if(obj.delivered > 0) {
-                obj.qty = obj.qty - obj.delivered
-            } 
-            return obj  
-        })
-        result.items = items
-        let deliveryItems = items.filter(obj => obj.qty > 0)
-        const delivery = await Deliveries.findOne({$and: [{salesId: salesId}]})
-        if(delivery) {
-            delivery.items = req.body.items
-            delivery.customerPO = req.body.customerPO
-            delivery.shipping = result.shipping
-            delivery.shipTo = req.body.shipTo
-            await delivery.save()
-        } else {
-            if(deliveryItems.length > 0) {
-                await moduleDelivery(result, req.user._id)
+        await Deliveries.updateMany({salesId: result._id}, {
+            $set: {
+                items: req.body.items,
+                customerPO: result.customerPO,
+                shipping: result.shipping,
+                shipTo: result.shipTo
             }
-        }
+        })
         res.status(200).json(result)
     })
-    .catch(err => {
-        res.status(400).send(err)
-    })
-};
+}

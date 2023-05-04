@@ -715,7 +715,6 @@ exports.duplicateQuotation = async (req, res) => {
         el.delivered = 0
         el.invoiced = 0
     }
-    console.log(duplicate)
     let newID;
     const date = new Date();
     let dd = date.getDate();

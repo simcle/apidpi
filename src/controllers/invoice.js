@@ -987,7 +987,6 @@ exports.updateInvoice = async (req, res) => {
         res.status(200).json('OK')
     })
 }
-
 exports.cancelledInvoice = async (req, res) => {
     const invoiceId = req.params.invoiceId
     const salesId = req.query.salesId
