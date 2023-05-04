@@ -22,11 +22,16 @@ exports.getSales = (req, res) => {
     const filter = req.query.filter;
     let totalItems;
     let query;
-    if(filter) {
-        query = {invoiceStatus: {$in: filter}}
+    if(filter && search) {
+        query = {$and: [{status: 'Sales Order'}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {salesNo: {$regex: '.*'+search+'.*', $options:'i'}}, {items: {$elemMatch: {name: {$regex: '.*'+search+'.*', $options:'i'}}}}]}, {invoiceStatus: {$in: filter}}]}
+    } else if (filter && !search) {
+        query = {$and: [{status: 'Sales Order'}, {invoiceStatus: {$in: filter}}]}
+    } else if (!filter && search) {
+        query = {$and: [{status: 'Sales Order'}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {salesNo: {$regex: '.*'+search+'.*', $options:'i'}}, {items: {$elemMatch: {name: {$regex: '.*'+search+'.*', $options:'i'}}}}]}]}
     } else {
-        query = {}
+        query = {status: 'Sales Order'}
     }
+    console.log(query);
     Sales.aggregate([
         {$lookup: {
             from: 'customers',
@@ -108,9 +113,7 @@ exports.getSales = (req, res) => {
                 ]
             }
         }},
-        {$match: {
-            $and: [{status: 'Sales Order'}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {salesNo: {$regex: '.*'+search+'.*', $options:'i'}}, {items: {$elemMatch: {name: {$regex: '.*'+search+'.*', $options:'i'}}}}]}, query]
-        }},
+        {$match: query},
         {$count: 'count'}
     ])
     .then(count => {
@@ -200,9 +203,7 @@ exports.getSales = (req, res) => {
                     ]
                 }
             }},
-            {$match: {
-                $and: [{status: 'Sales Order'}, {$or: [{customer: {$regex: '.*'+search+'.*', $options: 'i'}}, {salesNo: {$regex: '.*'+search+'.*', $options:'i'}}, {items: {$elemMatch: {name: {$regex: '.*'+search+'.*', $options:'i'}}}}]}, query]
-            }},
+            {$match: query},
             {$sort: {salesCreated: -1}},
             {$skip: (currentPage -1) * perPage},
             {$limit: perPage}
