@@ -22,7 +22,7 @@ exports.getSales = (req, res) => {
     const filter = req.query.filter;
     let totalItems;
     let query;
-    if(filter && search) {
+    if(filter) {
         query = {invoiceStatus: {$in: filter}}
     } else {
         query = {}
